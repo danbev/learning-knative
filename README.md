@@ -34,13 +34,43 @@ be reused for multiple applications.
 
 
 
-### Servicing
+### Serving
 Automatically scale based on load, including scaling to zero when there is no load
 You deploy a prebuild image to the underlying kubernetes cluster.
+
+Serving contains a number of components/object which are described below:
 
 #### Configuration
 This will contain a name reference to the container image to deploy. This
 ref is called a Revision.
+Example configuration (configuration.yaml):
+```
+apiVersion: serving.knative.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: js-example
+  namespace: js-event-example
+spec:
+  revisionTemplate:
+    spec:
+      container:
+        image: docker.io/dbevenius/faas-js-example
+```
+This can be applied to the cluster using:
+```console
+$ kubectl apply -f configuration.yaml
+configuration.serving.knative.dev/js-example created
+```
+
+```console
+$ kubectl get configurations js-example -oyaml
+```
+
+```
+$ kubectl get ksvc js-example  --output=custom-columns=NAME:.metadata.name,URL:.status.url
+NAME               URL
+js-example   http://js-example.default.example.com
+```
 
 #### Revision
 Immutable snapshots of code and configuration. Refs a specific container image
@@ -50,10 +80,15 @@ it’s possible to bring up a new Revision while serving traffic to the old vers
 Then, once you are ready to direct traffic to the new Revision, update the Route
 to instantly switch over. This is sometimes referred to as a blue-green
 deployment, with blue and green representing the different versions.
+```console
+$ kubectl get revisions 
+```
 
 #### Route
+Routes to a specific revision.
 
 #### Service
+This is our functions code.
 
 
 ### Eventing
@@ -226,3 +261,94 @@ apiVersion: serving.knative.dev/v1alpha1
 in a yaml file which is specifying the API group, `serving.knative.dev` and the
 version.
 
+
+
+### Service mesh
+A service mesh is a way to control how different parts of an application share
+data with one another. So you have your app that communicates with various other
+sytstems, like backend database applications or other systems. There are all
+moving parts and their availability might change over time. To avoid one system
+getting swamped with requests and overloaded we use a service mesh which routes
+requests from one service to the next. This indirection allows for optimizations
+and re-routing where needed.
+
+In a service mesh, requests are routed between microservices through proxies in
+their own infrastructure layer. For this reason, individual proxies that make
+up a service mesh are sometimes called “sidecars,” since they run alongside each
+service, rather than within them. Taken together, these “sidecar” proxies—decoupled from each service—form a mesh network.
+So each service has a proxy attached to it which is called a sidecar. These 
+side cars route network request to other side-cars, which are the services
+that the current service uses. The network of these side cars are the service
+mesh.
+These sidcars also allow for collecting metric about communication so that other
+services can be added to monitor or take actions based on changes to the network.
+
+Note that we have only been talking about communication between services and
+not communication with the outside world (outside of the service network/mesh).
+To expose a service to the outside world and allow it to be access through the
+service mesh, so that it can take advantage of all the features like of the
+service mesh instead of calling the service directly, we have to enble ingress
+traffic.
+
+So we have dynamic request routing in the proxies. 
+To manage the routing and other features of the service mesh a control plane
+is used for centralized management.
+In Istio this is called a control plan which has three components:
+1) Pilot
+2) Mixer
+2) Istio-Auth
+
+### API Gateway
+An API Gateway is focused on offering a single entry point for external clients
+whereas a service mesh is for service to service communication. But there are
+a lot of features that both have in common. But there would be more overhead having
+an API gateway between all internal services (like latency for example).
+Ambassidor is an example of an API gateway.
+But an API gateway can be used at the entry point to a service mesh.
+
+
+
+### Sidecar
+Is a utility container that supports the main container in a pod. Remember that
+a pod is a collection of one or more containers.
+
+
+### Envoy
+Is composed of two parts:
+1) Edge
+This gives a single point of ingress (external traffic; not internal to the
+service mesh).
+2) Service 
+This is a separate process that keeps an eye on the services. 
+
+All of these instances form a mesh and share routing information with each other.
+
+#### Configuration
+The configuration consists of listeners and clusters.
+
+A listener tells which port it should listen to. This can also have a filter
+associated with it.
+
+So to use Knative we need istio for the service mesh (communication between
+services), we also need to be able to access the target service externally which
+we use some ingress service for. 
+
+So I need to install istio (or other service mesh) and an ingress to the
+kubernetes cluster and then Knative to be able to use Knative.
+
+### Istio
+Is a service mesh.
+ It is also a platform, including APIs that let it integrate into any logging
+platform, or telemetry or policy system
+You add Istio support to services by deploying a special sidecar proxy throughout
+your environment that intercepts all network communication between microservices,
+then configure and manage Istio using its control plane functionality
+
+Istio’s traffic management model relies on the Envoy proxies that are deployed along with your services. 
+All traffic that your mesh services send and receive (data plane traffic) is proxied through Envoy, making it easy to direct and control traffic around your mesh without making any changes to your services.
+
+
+### Helm
+Is a package manager for Kubernetes (think npm).
+Helm calls its packaging format charts which is a collection of files related
+to a set of Kubernetes resources.
