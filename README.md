@@ -9,6 +9,9 @@ Knative focuses on three key categories:
 * enabling applications to easily consume and produce events.
 ```
 
+Knative depends on Istio for setting up the internal network routing and the
+ingress (data originating from outside the local network)
+
 ### Building
 Go from source to container.
 
@@ -90,6 +93,47 @@ Routes to a specific revision.
 #### Service
 This is our functions code.
 
+The serving names space is `knative-serving`. The Serving system has four
+primary components. 
+```
+1) Controller
+Is responsible for updating the state of the cluster. It will create kubernetes
+and istio resources for the knative-serving resource being created.
+
+2) Webhook
+Handles validation of the objects and actions performed
+
+3) Activator
+Brings back scaled-to-zero pods and forwards requets.
+
+4) Autoscaler
+Scales pods as requests come in.
+```
+We can see these pods by running:
+```console
+$ kubectl -n knative-serving get pods
+```
+
+So, lets take a look at the controller. The configuration files for are located
+in [controller.yaml](https://github.com/knative/serving/blob/master/config/controller.yaml)
+```console
+$ kubectl describe deployment/controller -n knative-serving
+```
+I'm currently using OpenShift so the details compared to the controller.yaml will
+probably differ but the interesting part for me is that these are "just" object
+that are deployed into the kubernetes cluster.
+
+So what happens when we run the following command?
+```console
+$ kubectl apply -f service.yaml
+```
+This will make a request to the API Server which will take the actions appropriate
+for the description of the state specified in service.yaml. For this to
+work there must have been something registered that can handle the apiversion:
+```
+apiVersion: serving.knative.dev/v1alpha1
+```
+I'm assuming this is done as part of installing knative 
 
 ### Eventing
 Makes it easy to produce and consume events. Abstracts away from event sources
@@ -213,53 +257,6 @@ cluster with Istio.
 ### Operators
 In OpenShift Operators are the preferred method of packaging, deploying, and managing services on the control plane. 
 
-### Kubernetes
-
-#### Master node
-Acts as a controller and is where decisions are made about scheduling, detecting
-and responding to cluster events.
-The master consists of the following components:
-
-##### API Server
-Exposes REST API that users/tools can interact with.
-
-##### Cluster data store
-This is `etcd` which is a key-value data store and is the persistent store that
-kubernetes uses.
-
-##### Controller Manager
-Runs all the controllers that handle all the routine tasks in the cluster. Examples
-are Node Controller, Replication Controller, Endpoint Controller, Service Account,
-and Token Controllers.
-
-##### Scheduler
-Watches for new pods and assigns them to nodes.
-
-##### Dashboard (options)
-Web UI.
-
-#### Worker nodes
-These run the containers and provide the runtime. A worker node is comprised of
-a kublet. It watches the API Server for pods that have been assigned to it.
-Inside each pod there are containers. Kublet runs these via Docker by pulling
-images, stopping, starting, etc.
-Another part of a worker node is the kube-proxy which maintains networking rules
-on the host and performing connection forwarding. It also takes care of load
-balancing.
-
-#### Kubernetes Pod
-Is a group of one or more containers with shared storage and network. Pods are
-the unit of scaling.
-
-
-### API Groups
-Kubernetes uses a versioned API which is categoried into API groups. For example,
-you might find:
-```
-apiVersion: serving.knative.dev/v1alpha1
-```
-in a yaml file which is specifying the API group, `serving.knative.dev` and the
-version.
 
 
 
@@ -352,3 +349,209 @@ All traffic that your mesh services send and receive (data plane traffic) is pro
 Is a package manager for Kubernetes (think npm).
 Helm calls its packaging format charts which is a collection of files related
 to a set of Kubernetes resources.
+A chart must follow a naming and directory convention. The name of the dirctory
+must be the name of the chart:
+```
+chartname/
+         Chart.yaml
+         values.yaml
+         charts
+         crds (Custom Resourcde Definitions)
+         templates
+
+
+
+### kubectl
+Remove all the objects defined in a yaml file:
+```console
+kubectl delete -f service.yaml
+```
+Update the object defined in a yaml file:
+```console
+kubectl replace -f service.yaml
+```
+
+### Kubernetes Custom Resources
+Are extentions of the Kubernetes API. A resource is simply an endpoint in the
+kubernetes API that stores a collection of API objects (think pods or something
+like that). 
+After a custom resources is installed kubectl can be used to with it just like
+any other object.
+So the customer resource just allows for storing and retrieving structured data,
+and to have functionality you have custom controllers.
+
+The Operator pattern combines custom resources and custom controllers.
+
+### Kubernetes
+Kubernetes is a portable, extensible, open-source platform for managing
+containerized workloads and services, that facilitates both declarative
+configuration and automation. It gives you service discovery and load balancing,
+storage orchestration (mounting storage systems), automated rollouts/rollbacks,
+self healing, etc.
+There are various components to kubernetes:
+
+#### Master node
+Acts as a controller and is where decisions are made about scheduling, detecting
+and responding to cluster events.
+The master consists of the following components:
+
+##### API Server
+Exposes REST API that users/tools can interact with.
+
+##### Cluster data store
+This is `etcd` which is a key-value data store and is the persistent store that
+kubernetes uses.
+
+##### Controller Manager
+Runs all the controllers that handle all the routine tasks in the cluster. Examples
+are Node Controller, Replication Controller, Endpoint Controller, Service Account,
+and Token Controllers.
+
+##### Scheduler
+Watches for new pods and assigns them to nodes.
+
+##### Dashboard (options)
+Web UI.
+
+
+#### Resource
+A resource is an object that is stored in etcd and can be accessed through the
+api server. By itself this is what it does, contains information about the resource
+. A controller is what performs actions as far as I understand it.
+
+#### Controllers
+Each controller is responible for a particular resource.
+Controller components:
+```
+1) Informer/SharedInformer
+Watches the current state of the resource instances and sends events to the
+Workqueue. The informer gets the information about an object it sends a request
+to the API server. Instread of each informater caching the objects it is interested
+in multiple controllers might be interested in the same resource object. Instead
+of them each caching the data/state they can share the cache among themselves,
+this is what a SharedInformer does.
+
+Resource Event Handler handles the notifications when changes occur.
+```go
+type ResourceEventHandlerFuncs struct {
+	AddFunc    func(obj interface{})
+	UpdateFunc func(oldObj, newObj interface{})
+	DeleteFunc func(obj interface{})
+}
+```
+
+
+2) Workqueue
+Items in this queue are taken by workers to perform work.
+```
+
+
+#### Worker nodes
+These run the containers and provide the runtime. A worker node is comprised of
+a kublet. It watches the API Server for pods that have been assigned to it.
+Inside each pod there are containers. Kublet runs these via Docker by pulling
+images, stopping, starting, etc.
+Another part of a worker node is the kube-proxy which maintains networking rules
+on the host and performing connection forwarding. It also takes care of load
+balancing.
+
+
+#### Kubernetes nodes
+Each node has a `kubelet` process and a `kube-proxy` process.
+
+##### Kubelet
+Makes sure that the containers are running in the pod. The information it uses
+is the PodSpecs.
+
+##### Kube-proxy
+Maintains networking rules on nodes. It uses the OS packet filtering layer if
+available.
+
+##### Container runtime
+Is the software responsible for running containers (docker, containerd, cri-o,
+rktlet).
+
+
+#### Addons
+
+##### Cluster DNS addon
+Is a DNS server which serves DNS records for kubernetes services.
+Containers started by Kubernetes automatically include this DNS server in their DNS searches
+
+### API Groups
+Kubernetes uses a versioned API which is categoried into API groups. For example,
+you might find:
+```
+apiVersion: serving.knative.dev/v1alpha1
+```
+in a yaml file which is specifying the API group, `serving.knative.dev` and the
+version.
+
+#### Pods
+Is a group of one or more containers with shared storage and network. Pods are
+the unit of scaling.
+
+#### ReplicaSet
+The goal of a replicaset is to maintain a stable set of replica Pods.
+When a ReplicaSet needs to create new Pods, it uses its Pod template.
+Deployment is a higher-level concept that manages ReplicaSets and provides
+declarative updates to Pods along with a lot of other useful features. It is
+recommended to use Deployments instead of ReplicaSets directly.
+
+#### ReplicationController
+ReplicationController makes sure that a pod or a homogeneous set of pods is
+always up and available. If there are too many pods this controller will delete
+them, and if there are not enough it will create more. Pods maintined by this
+controller are automatically replace if deleted, which is not the case for manually
+create pods.
+
+### Kubernetes Deployment
+
+
+A controller is a client of Kubernetes. When Kubernetes is the client and calls
+out to a remote service, it is called a Webhook. 
+
+
+### Custom Resource Def/Controller
+[k8s-controller](./k8s-controller) is an example of a custom resource controller
+written in Rust. The goal is to understand how these work with the end goal being
+able to understand how other controllers are written and how they are installed
+and work. 
+I'm using CodeReady Container(crc) so I'll be using some none kubernetes commands:
+```
+$ oc login -u kubeadmin -p e4FEb-9dxdF-9N2wH-Dj7B8 https://api.crc.testing:6443
+$ oc new-project my-controller
+$ kubectl create -f docs/crd.yaml
+customresourcedefinition.apiextensions.k8s.io/somethings.example.nodeshift created
+```
+We can try to access `somthings` using:
+```console
+$ kubectl get something -o yaml
+```
+But there will not be anything in there get. We have to create something using
+```console
+$ kubectl create -f docs/member.yaml
+something.example.nodeshift/dan created
+```
+Now if we again try to list the resources we will see an entry in the `items` list.
+```console
+$ kubectl get something -o yaml
+```
+And we can get all Something's using:
+```console
+$ kubectl get Something
+$ kubectl describe Something
+$ kubectl describe Something/dan
+```
+
+```console
+$ kubectl config current-context
+default/api-crc-testing:6443/kube:admin
+```
+
+Building/Running:
+```
+$ cargo run
+```
+```console
+$ kubectl delete -f docs/member.yaml
