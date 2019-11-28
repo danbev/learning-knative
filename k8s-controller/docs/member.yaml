@@ -1,0 +1,8 @@
+# Notice that we are using the full resource name from crd.yaml
+apiVersion: example.nodeshift/v1
+kind: Something
+metadata:
+  name: dan
+spec:
+  title: Desk manager
+  desription: Manages his own desk
