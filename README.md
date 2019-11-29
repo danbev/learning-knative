@@ -89,7 +89,6 @@ build a new application. So just really an object with a Secret which can
 be reused for multiple applications.
 
 
-
 ### Serving
 Automatically scale based on load, including scaling to zero when there is no load
 You deploy a prebuild image to the underlying kubernetes cluster.
@@ -302,15 +301,13 @@ how our events should be piped through the entire system.
 ### Istio
 Istio is a service mesh that provides many useful features on top of Kubernetes
 including traffic management, network policy enforcement, and observability. We
-don’t consider Istio to be a component of Knative but instead one of its
-dependencies, just as Kubernetes is. Knative ultimately runs atop a Kubernetes
+don’t consider Istio to be a component of Knative, but instead one of its
+dependencies, just as Kubernetes is. Knative ultimately runs on a Kubernetes
 cluster with Istio.
 
 
 ### Operators
 In OpenShift Operators are the preferred method of packaging, deploying, and managing services on the control plane. 
-
-
 
 
 ### Service mesh
@@ -325,11 +322,14 @@ and re-routing where needed.
 In a service mesh, requests are routed between microservices through proxies in
 their own infrastructure layer. For this reason, individual proxies that make
 up a service mesh are sometimes called “sidecars,” since they run alongside each
-service, rather than within them. Taken together, these “sidecar” proxies—decoupled from each service—form a mesh network.
+service, rather than within them. Taken together, these “sidecar”
+proxies—decoupled from each service—form a mesh network.
+
 So each service has a proxy attached to it which is called a sidecar. These 
 side cars route network request to other side-cars, which are the services
 that the current service uses. The network of these side cars are the service
 mesh.
+
 These sidcars also allow for collecting metric about communication so that other
 services can be added to monitor or take actions based on changes to the network.
 
@@ -344,9 +344,11 @@ So we have dynamic request routing in the proxies.
 To manage the routing and other features of the service mesh a control plane
 is used for centralized management.
 In Istio this is called a control plan which has three components:
+```
 1) Pilot
 2) Mixer
 2) Istio-Auth
+```
 
 ### API Gateway
 An API Gateway is focused on offering a single entry point for external clients
@@ -543,6 +545,11 @@ version.
 #### Pods
 Is a group of one or more containers with shared storage and network. Pods are
 the unit of scaling.
+A pod consists of a Linux namespace which is shared with all the containers in 
+the pod, which gives them access to each other. So a container is used for
+isolation you can join them using namespaces which how a pod is created. This
+is how a pod can share the one IP address as they are in the same networking
+namespace.
 
 #### ReplicaSet
 The goal of a replicaset is to maintain a stable set of replica Pods.
@@ -606,5 +613,12 @@ Building/Running:
 ```
 $ cargo run
 ```
+Deleting a resource should trigger our controller:
 ```console
 $ kubectl delete -f docs/member.yaml
+
+
+### Docker
+```console
+$ screen ~/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux/tty
+```
