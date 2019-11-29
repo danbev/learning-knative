@@ -1,6 +1,59 @@
 Knative looks to build on Kubernetes and present a consistent, standard pattern
 for building and deploying serverless and event-driven applications. 
 
+Knative allows services to scale down to zero and scale up from zero. 
+
+### Installation
+Knative runs on kubernetes, and Knative depends on Istio so we need to install
+these. 
+I'm using mac so I'll use home brew to install minikube:
+```console
+$ brew install minikube
+```
+Next, we start minikube:
+```console
+$ minikube start --memory=8192 --cpus=6 \
+  --kubernetes-version=v1.14.0 \
+  --vm-driver=hyperkit \
+  --disk-size=30g \
+  --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+```
+We are using 1.15.0 as this is the version the Istio is compatible with.
+
+So, we should now have a kubernetes cluster up and running. 
+```console
+$ minikube status
+```
+Show the status of the Control Plane components:
+```console
+$ kubectl get componentstatuses
+```
+
+We now want to add Istio to it.
+```console
+$ curl -L https://istio.io/downloadIstio | sh -
+$ kubectl apply -f istio-1.1.7/install/kubernetes/istio-demo.yaml
+```
+
+Wait for the pods to be created:
+```console
+$ kubectl get pods -n istio-system
+```
+
+Now we are ready to install Knative:
+```console
+$ kubectl apply --selector knative.dev/crd-install=true \
+   --filename https://github.com/knative/serving/releases/download/v0.10.0/serving.yaml \
+   --filename https://github.com/knative/eventing/releases/download/v0.10.0/release.yaml \
+   --filename https://github.com/knative/serving/releases/download/v0.10.0/monitoring.yaml
+```
+And now once more:
+```console
+$ kubectl apply --filename https://github.com/knative/serving/releases/download/v0.10.0/serving.yaml \
+   --filename https://github.com/knative/eventing/releases/download/v0.10.0/release.yaml \
+   --filename https://github.com/knative/serving/releases/download/v0.10.0/monitoring.yaml
+```
+
 
 Knative focuses on three key categories:
 ```
