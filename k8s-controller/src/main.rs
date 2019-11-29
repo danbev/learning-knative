@@ -2,45 +2,50 @@
 extern crate serde_derive;
 
 use kube::{
-    api::{Object, RawApi, Informer, WatchEvent, Void},
+    api::{Informer, Object, RawApi, Void, WatchEvent},
     client::APIClient,
     config,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Something {
+pub struct Member {
     pub title: String,
     pub description: String,
 }
 
-type KubeSomething = Object<Something, Void>;
+type KubeMember = Object<Member, Void>;
 
 fn main() {
-    let _config_options = config::ConfigOptions{
-        cluster: Some("api.crc.testing:6443".to_string()),
-        context: Some("developer".to_string()),
-        user: Some("kube:admin/api-crc-testing:6443".to_string()),
-    };
-    let kubeconfig = config::load_kube_config()
-        .expect("kubeconfig failed to load");
-    println!("base_path: {:?}", kubeconfig.base_path);
-    println!("Client: {:?}", kubeconfig.client);
+    let kubeconfig = config::load_kube_config().expect("kubeconfig failed to load");
+
     let client = APIClient::new(kubeconfig);
+
     let namespace = "default";
-    let resource = RawApi::customResource("somethings")
-        .group("example.nodeshift")
+    let resource = RawApi::customResource("members")
+        .group("example.nodeshift.com")
         .within(&namespace);
 
-    let informer = Informer::raw(client, resource).init().expect("informer init failed");
-
+    let informer = Informer::raw(client, resource)
+        .init()
+        .expect("informer init failed");
     loop {
         informer.poll().expect("informer poll failed");
+
         while let Some(event) = informer.pop() {
             handle(event);
         }
     }
 }
 
-fn handle(event: WatchEvent<KubeSomething>) {
-    println!("Something happened to a something resource instance: {:?}", event)
+fn handle(event: WatchEvent<KubeMember>) {
+    match event {
+        WatchEvent::Added(m) => println!(
+            "Added member {} with title '{}' ({})",
+            m.metadata.name, m.spec.title, m.spec.description
+        ),
+        WatchEvent::Deleted(m) => println!("Deleted {} {}",
+                                           m.spec.title,
+                                           m.metadata.name),
+        _ => println!("another event"),
+    }
 }
