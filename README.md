@@ -13,7 +13,7 @@ $ brew install minikube
 Next, we start minikube:
 ```console
 $ minikube start --memory=8192 --cpus=6 \
-  --kubernetes-version=v1.14.0 \
+  --kubernetes-version=v1.15.0 \
   --vm-driver=hyperkit \
   --disk-size=30g \
   --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
@@ -37,7 +37,7 @@ $ kubectl apply -f istio-1.1.7/install/kubernetes/istio-demo.yaml
 
 Wait for the pods to be created:
 ```console
-$ kubectl get pods -n istio-system
+$ kubectl get pods -n istio-system --watch
 ```
 
 Now we are ready to install Knative:
@@ -54,6 +54,37 @@ $ kubectl apply --filename https://github.com/knative/serving/releases/download/
    --filename https://github.com/knative/serving/releases/download/v0.10.0/monitoring.yaml
 ```
 
+To verify that Knative has been installed we can check the pods:
+```console
+$ kubectl get pods --namespace knative-serving --namespace=knative-eventing
+```
+
+So, after this we should be good to go and deploying a Knative service should
+be possible:
+```console
+$ kubectl apply -f service.yaml
+$ kubectl get pods --watch
+```
+
+```console
+$ kubectl describe svc js-example
+```
+
+Get the port:
+```console
+$ kubectl get svc istio-ingressgateway --namespace istio-system --output 'jsonpath={.spec.ports[?(@.port==80)].nodePort}'
+31380
+```
+And the ip:
+```console
+$ minikube ip
+192.168.64.21
+```
+
+We can now use this information to invoke our service:
+```console
+$ curl -v -H 'Host: js-example.default.example.com' 192.168.64.21:31380/
+```
 
 Knative focuses on three key categories:
 ```
