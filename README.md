@@ -1,7 +1,109 @@
+## Learning Knative 
 Knative looks to build on Kubernetes and present a consistent, standard pattern
 for building and deploying serverless and event-driven applications. 
 
 Knative allows services to scale down to zero and scale up from zero. 
+
+### Background knowledge
+Before we start there are a few things that I was not 100% clear about and this
+section aim to sort this out to allow for better understanding of the underlying
+technologies.
+
+#### Container
+When a container is deployed, a container image, it has all the libraries, file
+it needs to run. It does not have an entire OS but instead uses the underlying
+hosts kernel which saves space compared to a separate VM. 
+
+Also it is worth mentioning that a running container is process (think unix process)
+which has a separate control group (cgroup), and namespace (mnt, IPC, net, usr, pid,
+and uts (Unix Time Share system).
+cgroups allows the Linux OS to manage and monitor resources allocated to a process
+and also set limits for things like CPU, memory, network. This is so that one
+process is not allowed to hog all the resources and affect others. Namespaces
+are used to isolate process from each other. Each container will have its own
+namespace but it is also possible for multiple containers to be in the same
+namespace which is what the deployment unit of kubernetes is; the pod.
+
+But what about the container itself, what does it look like?  
+It's a process that is started with specific limits and namespace, chrooted to
+a mounted filesystem.
+
+
+What about an docker image, what does it look like?  
+This filesystem is tarred (.tar) and metadata is added.
+
+So, lets save an image to a tar:
+```console
+$ docker save dbevenius/faas-js-example -o faas-js-example.tar
+```
+If you extract this to location somewhere you can see all the files that
+are included. 
+```console
+$ ls -l
+total 197856
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 33f42e9c3b8312f301e51b6c2575dbf1943afe5bfde441a81959b67e17bd30fd
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 354bdf12df143f7bb58e23b66faebb6532e477bb85127dfecf206edf718f6afa
+-rw-r--r--  1 danielbevenius  staff      7184 Nov 25 09:37 3e98616b38fe8a6943029ed434345adc3f01fd63dce3bec54600eb0c9e03bdff.json
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 4ce67bc3be70a3ca0cebb5c0c8cfd4a939788fd413ef7b33169fdde4ddae10c9
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 835da67a1a2d95f623ad4caa96d78e7ecbc7a8371855fc53ce8b58a380e35bb1
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 86b808b018888bf2253eae9e25231b02bce7264801dba3a72865af2a9b4f6ba9
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 91859611b06cec642fce8f8da29eb8e18433e8e895787772d509ec39aadd41f9
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 b7e513f1782880dddf7b47963f82673b3dbd5c2eeb337d0c96e1ab6d9f3b76bd
+drwxr-xr-x  5 danielbevenius  staff       160 Nov 25 09:37 f3d9c7465c1b1752e5cdbe4642d98b895476998d41e21bb2bfb129620ab2aff9
+-rw-r--r--  1 danielbevenius  staff       794 Jan  1  1970 manifest.json
+-rw-r--r--  1 danielbevenius  staff       183 Jan  1  1970 repositories
+```
+
+manifest.json:
+```console
+[
+  {"Config":"3e98616b38fe8a6943029ed434345adc3f01fd63dce3bec54600eb0c9e03bdff.json",
+   "RepoTags":["dbevenius/faas-js-example:0.0.3","dbevenius/faas-js-example:latest"],
+    "Layers":["b7e513f1782880dddf7b47963f82673b3dbd5c2eeb337d0c96e1ab6d9f3b76bd/layer.tar",
+              "86b808b018888bf2253eae9e25231b02bce7264801dba3a72865af2a9b4f6ba9/layer.tar",
+              "354bdf12df143f7bb58e23b66faebb6532e477bb85127dfecf206edf718f6afa/layer.tar",
+              "4ce67bc3be70a3ca0cebb5c0c8cfd4a939788fd413ef7b33169fdde4ddae10c9/layer.tar",
+              "91859611b06cec642fce8f8da29eb8e18433e8e895787772d509ec39aadd41f9/layer.tar",
+              "835da67a1a2d95f623ad4caa96d78e7ecbc7a8371855fc53ce8b58a380e35bb1/layer.tar",
+              "f3d9c7465c1b1752e5cdbe4642d98b895476998d41e21bb2bfb129620ab2aff9/layer.tar",
+              "33f42e9c3b8312f301e51b6c2575dbf1943afe5bfde441a81959b67e17bd30fd/layer.tar"]}]
+```
+repositories:
+```console
+{
+  "dbevenius/faas-js-example": {
+     "0.0.3":"33f42e9c3b8312f301e51b6c2575dbf1943afe5bfde441a81959b67e17bd30fd",
+     "latest":"33f42e9c3b8312f301e51b6c2575dbf1943afe5bfde441a81959b67e17bd30fd"
+  }
+}
+```
+
+3e98616b38fe8a6943029ed434345adc3f01fd63dce3bec54600eb0c9e03bdff.json:
+This file contains the configuration of the container.
+
+When a image is to be run, the above information is passed to a container runtime
+which might be from Docker or rkt. There is component called libcontainer which
+I think is now `runC` which is a universal container runtime. 
+
+The next part is me guessing a little but with the metadata about the container
+shown above and in each of the directories (hashes) there is a layer.tar which
+contains the files for that layer. The container runtime will create the
+cgroup, the namespaces, and mount the union filesystem. The process resulting
+from this is the container.
+
+When we build a Docker image we specify a base image and that is usually a
+specific operating system. This is not a full OS but instead all the libraries
+and utilities expected to be found by the application. They kernel used is the
+host. 
+
+#### Pods
+Is a group of one or more containers with shared storage and network. Pods are
+the unit of scaling.
+A pod consists of a Linux namespace which is shared with all the containers in 
+the pod, which gives them access to each other. So a container is used for
+isolation you can join them using namespaces which how a pod is created. This
+is how a pod can share the one IP address as they are in the same networking
+namespace.
 
 ### Installation
 Knative runs on kubernetes, and Knative depends on Istio so we need to install
@@ -340,7 +442,6 @@ Subscriptions are the glue between Channels and Services, instructing Knative
 how our events should be piped through the entire system.
 
 
-
 ### Istio
 Istio is a service mesh that provides many useful features on top of Kubernetes
 including traffic management, network policy enforcement, and observability. We
@@ -348,10 +449,9 @@ don’t consider Istio to be a component of Knative, but instead one of its
 dependencies, just as Kubernetes is. Knative ultimately runs on a Kubernetes
 cluster with Istio.
 
-
 ### Operators
-In OpenShift Operators are the preferred method of packaging, deploying, and managing services on the control plane. 
-
+In OpenShift Operators are the preferred method of packaging, deploying, and
+managing services on the control plane. 
 
 ### Service mesh
 A service mesh is a way to control how different parts of an application share
@@ -400,7 +500,6 @@ a lot of features that both have in common. But there would be more overhead hav
 an API gateway between all internal services (like latency for example).
 Ambassidor is an example of an API gateway.
 But an API gateway can be used at the entry point to a service mesh.
-
 
 
 ### Sidecar
