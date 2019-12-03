@@ -85,6 +85,18 @@ We can now use this information to invoke our service:
 ```console
 $ curl -v -H 'Host: js-example.default.example.com' 192.168.64.21:31380/
 ```
+You'll notice that it might take a while for the first call if the service
+has been scaled down to zero. You'll can check this by first seeing if there
+are any pods before you run the curl command and then afterwards.
+
+
+Next we will create a source for events:
+```console
+$ kubectl apply -f source.yaml
+```
+```console
+$ kubectl describe sources
+```
 
 Knative focuses on three key categories:
 ```
@@ -649,7 +661,34 @@ Deleting a resource should trigger our controller:
 $ kubectl delete -f docs/member.yaml
 
 
-### Docker
+### Docker images
+hdiutil
+
+
+
+#### Building Knative Eventing
+I've addes a few environment variables to .bashrc and I also need to login
+to docker:
 ```console
-$ screen ~/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux/tty
+$ source ~/.bashrc
+$ docker login
+```
+```console
+$ mkdir -p ${GOPATH}/src/knative.dev
+```
+
+Running the unit tests:
+```console
+$ go test -v ./pkg/...
+# runtime/cgo
+ccache: invalid option -- E
+Usage:
+    ccache [options]
+    ccache compiler [compiler options]
+    compiler [compiler options]          (via symbolic link)
+```
+I had to unset CC and CXX for this to work:
+```console
+$ unset CC
+$ unset CXX
 ```
