@@ -290,11 +290,48 @@ You'll notice that it might take a while for the first call if the service
 has been scaled down to zero. You'll can check this by first seeing if there
 are any pods before you run the curl command and then afterwards.
 
+If you have stopped and restarted the cluster (perhaps because the noise of your
+computer fan was driving you crazy) you might get the following error message:
+```console
+UNAVAILABLE:no healthy upstream* Closing connection 0
+```
+The service will eventually become avilable and I think my machine (from 2013)
+is just exceptionally slow for this type of load). 
 
-Next we will create a source for events:
+So we have a service and we want events to be delivered to it. For this we
+need something that sends events. This is called an event source in knative. 
+
+
 ```console
 $ kubectl apply -f source.yaml
 ```
+
+Such an event source can send events directly to a service but that means that the
+source will have to take care of things like retries and handle situations when
+the service is not available. Instead the event source can use a channel which it
+can send the events to. 
+```console
+$ kubectl apply -f channel.yaml
+```
+
+Something can subscribe to this channel enabling the event
+to get delivered to the service, these things are called subscriptions.
+
+```console
+$ kubectl apply -f subscription.yaml
+```
+
+So we have our service deployed, we have a source for generating events which
+sends events to a channel, and we have a subscription that connects the channel
+to our service. Lets see if this works with our js-example.
+
+Next we will create a source for events:
+For this we first need to install the in-memory channel:
+```console
+$ ko apply -f config/channels/in-memory-channel/
+```
+
+
 ```console
 $ kubectl describe sources
 ```
