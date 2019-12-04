@@ -6,28 +6,39 @@ Knative allows services to scale down to zero and scale up from zero.
 
 ### Background knowledge
 Before we start there are a few things that I was not 100% clear about and this
-section aim to sort this out to allow for better understanding of the underlying
+section aims to sort this out to allow for better understanding of the underlying
 technologies.
 
 #### Container
-When a container is deployed, a container image, it has all the libraries, file
-it needs to run. It does not have an entire OS but instead uses the underlying
-hosts kernel which saves space compared to a separate VM. 
+A container is a process that is isolated from other processes using Linux
+kernal features like cgroups, namespaces, mounted union fs (chrooted), etc. 
+
+When a container is deployed what happens is that the above mentioned features
+are configured, a filesystem mounted, and a process is started. The metadata and
+the filesystem is contained in an image (more on this later).
+
+A container image, it has all the libraries, file it needs to run. It does not
+have an entire OS but instead uses the underlying hosts kernel which saves space
+compared to a separate VM. 
 
 Also it is worth mentioning that a running container is process (think unix process)
 which has a separate control group (cgroup), and namespace (mnt, IPC, net, usr, pid,
-and uts (Unix Time Share system).
+and uts (Unix Time Share system)).
+
+##### cgroups
 cgroups allows the Linux OS to manage and monitor resources allocated to a process
 and also set limits for things like CPU, memory, network. This is so that one
-process is not allowed to hog all the resources and affect others. Namespaces
-are used to isolate process from each other. Each container will have its own
+process is not allowed to hog all the resources and affect others. 
+
+##### namespaces
+Are used to isolate process from each other. Each container will have its own
 namespace but it is also possible for multiple containers to be in the same
 namespace which is what the deployment unit of kubernetes is; the pod.
 
-But what about the container itself, what does it look like?  
-It's a process that is started with specific limits and namespace, chrooted to
-a mounted filesystem.
+In a `pid` namespace your process becomes PID 1. You can only see this process
+and child processes, all others on the underlying host system are "gone".
 
+A `net` namespace for isolating network ip/ports.
 
 What about an docker image, what does it look like?  
 This filesystem is tarred (.tar) and metadata is added.
@@ -99,15 +110,19 @@ host.
 #### Pods
 Is a group of one or more containers with shared storage and network. Pods are
 the unit of scaling.
+
 A pod consists of a Linux namespace which is shared with all the containers in 
 the pod, which gives them access to each other. So a container is used for
 isolation you can join them using namespaces which how a pod is created. This
 is how a pod can share the one IP address as they are in the same networking
-namespace.
+namespace. And remember that a container is just a process, so these are multiple
+processes that can share some resources with each other.
 
 ### Installation
 Knative runs on kubernetes, and Knative depends on Istio so we need to install
-these. 
+these. Knative depends on Istio for setting up the internal network routing and the
+ingress (data originating from outside the local network).
+
 I'm using mac so I'll use home brew to install minikube:
 ```console
 $ brew install minikube
@@ -207,8 +222,6 @@ Knative focuses on three key categories:
 * enabling applications to easily consume and produce events.
 ```
 
-Knative depends on Istio for setting up the internal network routing and the
-ingress (data originating from outside the local network)
 
 ### Building
 Go from source to container.
@@ -449,24 +462,21 @@ don’t consider Istio to be a component of Knative, but instead one of its
 dependencies, just as Kubernetes is. Knative ultimately runs on a Kubernetes
 cluster with Istio.
 
-### Operators
-In OpenShift Operators are the preferred method of packaging, deploying, and
-managing services on the control plane. 
-
 ### Service mesh
 A service mesh is a way to control how different parts of an application share
 data with one another. So you have your app that communicates with various other
-sytstems, like backend database applications or other systems. There are all
+sytstems, like backend database applications or other systems. They are all
 moving parts and their availability might change over time. To avoid one system
-getting swamped with requests and overloaded we use a service mesh which routes
+getting swamped with requests and overloaded a service mesh is used which routes
 requests from one service to the next. This indirection allows for optimizations
 and re-routing where needed.
 
 In a service mesh, requests are routed between microservices through proxies in
 their own infrastructure layer. For this reason, individual proxies that make
 up a service mesh are sometimes called “sidecars,” since they run alongside each
-service, rather than within them. Taken together, these “sidecar”
-proxies—decoupled from each service—form a mesh network.
+service, rather than within them. These sidecars are just containers in the pod.
+Taken together, these “sidecar” proxies—decoupled from each service—form a mesh
+network.
 
 So each service has a proxy attached to it which is called a sidecar. These 
 side cars route network request to other side-cars, which are the services
@@ -492,6 +502,10 @@ In Istio this is called a control plan which has three components:
 2) Mixer
 2) Istio-Auth
 ```
+
+### Operators
+In OpenShift Operators are the preferred method of packaging, deploying, and
+managing services on the control plane. 
 
 ### API Gateway
 An API Gateway is focused on offering a single entry point for external clients
