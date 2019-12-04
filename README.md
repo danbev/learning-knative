@@ -118,6 +118,90 @@ is how a pod can share the one IP address as they are in the same networking
 namespace. And remember that a container is just a process, so these are multiple
 processes that can share some resources with each other.
 
+#### Kubernetes Custom Resources
+Are extentions of the Kubernetes API. A resource is simply an endpoint in the
+kubernetes API that stores a collection of API objects (think pods or deployments
+and things like that). You can add your own resources just like them using 
+custom resources. After a custom resources is installed kubectl can be used to
+with it just like any other object.
+
+So the customer resource just allows for storing and retrieving structured data,
+and to have functionality you have custom controllers.
+
+#### Controllers
+Each controller is responible for a particular resource.
+
+Controller components:
+```
+1) Informer/SharedInformer
+Watches the current state of the resource instances and sends events to the
+Workqueue. The informer gets the information about an object it sends a request
+to the API server. Instread of each informater caching the objects it is interested
+in multiple controllers might be interested in the same resource object. Instead
+of them each caching the data/state they can share the cache among themselves,
+this is what a SharedInformer does.
+
+Resource Event Handler handles the notifications when changes occur.
+type ResourceEventHandlerFuncs struct {
+	AddFunc    func(obj interface{})
+	UpdateFunc func(oldObj, newObj interface{})
+	DeleteFunc func(obj interface{})
+}
+
+2) Workqueue
+Items in this queue are taken by workers to perform work.
+```
+
+#### Custom Resource Def/Controller example
+[k8s-controller](./k8s-controller) is an example of a custom resource controller
+written in Rust. The goal is to understand how these work with the end goal being
+able to understand how other controllers are written and how they are installed
+and work. 
+
+I'm using CodeReady Container(crc) so I'll be using some none kubernetes commands:
+```
+$ oc login -u kubeadmin -p e4FEb-9dxdF-9N2wH-Dj7B8 https://api.crc.testing:6443
+$ oc new-project my-controller
+$ kubectl create -f docs/crd.yaml
+customresourcedefinition.apiextensions.k8s.io/somethings.example.nodeshift created
+```
+We can try to access `somthings` using:
+```console
+$ kubectl get something -o yaml
+```
+But there will not be anything in there get. We have to create something using
+```console
+$ kubectl create -f docs/member.yaml
+something.example.nodeshift/dan created
+```
+Now if we again try to list the resources we will see an entry in the `items` list.
+```console
+$ kubectl get something -o yaml
+```
+And we can get all Something's using:
+```console
+$ kubectl get Something
+$ kubectl describe Something
+$ kubectl describe Something/dan
+```
+
+```console
+$ kubectl config current-context
+default/api-crc-testing:6443/kube:admin
+```
+
+Building/Running:
+```
+$ cargo run
+```
+Deleting a resource should trigger our controller:
+```console
+$ kubectl delete -f docs/member.yaml
+```
+
+Keep this in mind when we are looking at Knative and Istio that this is mainly
+how one extends kubernetes using customer resources definitions with controllers.
+
 ### Installation
 Knative runs on kubernetes, and Knative depends on Istio so we need to install
 these. Knative depends on Istio for setting up the internal network routing and the
@@ -447,8 +531,11 @@ multiple Services? To answer all of these questions, Knative introduces the
 concept of Channels.
 Channels handle buffering and persistence, helping ensure that events are
 delivered to their intended Services, even if that service is down. Additionally,
-Channels are an abstraction between our code and the underlying messaging
-solution. This means we could swap this between something like Kafka and RabbitMQ
+Channels are an abstraction between your code and the underlying messaging
+solution. This means we could swap this between something like Kafka and RabbitMQ.
+
+Each channel is a custom resource.
+
 
 #### Subscriptions
 Subscriptions are the glue between Channels and Services, instructing Knative
@@ -582,14 +669,6 @@ Update the object defined in a yaml file:
 kubectl replace -f service.yaml
 ```
 
-### Kubernetes Custom Resources
-Are extentions of the Kubernetes API. A resource is simply an endpoint in the
-kubernetes API that stores a collection of API objects (think pods or something
-like that). 
-After a custom resources is installed kubectl can be used to with it just like
-any other object.
-So the customer resource just allows for storing and retrieving structured data,
-and to have functionality you have custom controllers.
 
 The Operator pattern combines custom resources and custom controllers.
 
@@ -630,29 +709,6 @@ A resource is an object that is stored in etcd and can be accessed through the
 api server. By itself this is what it does, contains information about the resource
 . A controller is what performs actions as far as I understand it.
 
-#### Controllers
-Each controller is responible for a particular resource.
-Controller components:
-```
-1) Informer/SharedInformer
-Watches the current state of the resource instances and sends events to the
-Workqueue. The informer gets the information about an object it sends a request
-to the API server. Instread of each informater caching the objects it is interested
-in multiple controllers might be interested in the same resource object. Instead
-of them each caching the data/state they can share the cache among themselves,
-this is what a SharedInformer does.
-
-Resource Event Handler handles the notifications when changes occur.
-type ResourceEventHandlerFuncs struct {
-	AddFunc    func(obj interface{})
-	UpdateFunc func(oldObj, newObj interface{})
-	DeleteFunc func(obj interface{})
-}
-
-
-2) Workqueue
-Items in this queue are taken by workers to perform work.
-```
 
 #### Worker nodes
 These run the containers and provide the runtime. A worker node is comprised of
@@ -724,52 +780,6 @@ create pods.
 A controller is a client of Kubernetes. When Kubernetes is the client and calls
 out to a remote service, it is called a Webhook. 
 
-
-### Custom Resource Def/Controller
-[k8s-controller](./k8s-controller) is an example of a custom resource controller
-written in Rust. The goal is to understand how these work with the end goal being
-able to understand how other controllers are written and how they are installed
-and work. 
-I'm using CodeReady Container(crc) so I'll be using some none kubernetes commands:
-```
-$ oc login -u kubeadmin -p e4FEb-9dxdF-9N2wH-Dj7B8 https://api.crc.testing:6443
-$ oc new-project my-controller
-$ kubectl create -f docs/crd.yaml
-customresourcedefinition.apiextensions.k8s.io/somethings.example.nodeshift created
-```
-We can try to access `somthings` using:
-```console
-$ kubectl get something -o yaml
-```
-But there will not be anything in there get. We have to create something using
-```console
-$ kubectl create -f docs/member.yaml
-something.example.nodeshift/dan created
-```
-Now if we again try to list the resources we will see an entry in the `items` list.
-```console
-$ kubectl get something -o yaml
-```
-And we can get all Something's using:
-```console
-$ kubectl get Something
-$ kubectl describe Something
-$ kubectl describe Something/dan
-```
-
-```console
-$ kubectl config current-context
-default/api-crc-testing:6443/kube:admin
-```
-
-Building/Running:
-```
-$ cargo run
-```
-Deleting a resource should trigger our controller:
-```console
-$ kubectl delete -f docs/member.yaml
-```
 
 #### Building Knative Eventing
 I've added a few environment variables to .bashrc and I also need to login
