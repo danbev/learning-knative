@@ -643,19 +643,16 @@ of them each caching the data/state they can share the cache among themselves,
 this is what a SharedInformer does.
 
 Resource Event Handler handles the notifications when changes occur.
-```go
 type ResourceEventHandlerFuncs struct {
 	AddFunc    func(obj interface{})
 	UpdateFunc func(oldObj, newObj interface{})
 	DeleteFunc func(obj interface{})
 }
-```
 
 
 2) Workqueue
 Items in this queue are taken by workers to perform work.
 ```
-
 
 #### Worker nodes
 These run the containers and provide the runtime. A worker node is comprised of
