@@ -769,15 +769,10 @@ $ cargo run
 Deleting a resource should trigger our controller:
 ```console
 $ kubectl delete -f docs/member.yaml
-
-
-### Docker images
-hdiutil
-
-
+```
 
 #### Building Knative Eventing
-I've addes a few environment variables to .bashrc and I also need to login
+I've added a few environment variables to .bashrc and I also need to login
 to docker:
 ```console
 $ source ~/.bashrc
