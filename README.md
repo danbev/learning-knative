@@ -40,7 +40,137 @@ and child processes, all others on the underlying host system are "gone".
 
 A `net` namespace for isolating network ip/ports.
 
+The component responsible for this work, setting the limits for cgroups, configuring
+the namespaces, mounting the filesystem, and starting the process is the
+responsibility of the container runtime
+
 What about an docker image, what does it look like?  
+
+We can use a tool named skopeo and umoci to inspect and find out more about
+images.
+```console
+$ brew install skopeo
+```
+The image I'm using is the following:
+```console
+$ skopeo inspect docker://dbevenius/faas-js-example
+{
+    "Name": "docker.io/dbevenius/faas-js-example",
+    "Digest": "sha256:69cc8b6087f355b7e4b2344587ae665c61a067ee05876acc3a5b15ca2b15e763",
+    "RepoTags": [
+        "0.0.3",
+        "latest"
+    ],
+    "Created": "2019-11-25T08:37:50.894674023Z",
+    "DockerVersion": "19.03.3",
+    "Labels": null,
+    "Architecture": "amd64",
+    "Os": "linux",
+    "Layers": [
+        "sha256:e7c96db7181be991f19a9fb6975cdbbd73c65f4a2681348e63a141a2192a5f10",
+        "sha256:95b3c812425e243848db3a3eb63e1e461f24a63fb2ec9aa61bcf5a553e280c07",
+        "sha256:778b81d0468fbe956db39aca7059653428a7a15031c9483b63cb33798fcdadfa",
+        "sha256:28549a15ba3eb287d204a7c67fdb84e9d7992c7af1ca3809b6d8c9e37ebc9877",
+        "sha256:0bcb2f6e53a714f0095f58973932760648f1138f240c99f1750be308befd9436",
+        "sha256:5a4ed7db773aa044d8c7d54860c6eff0f22aee8ee56d4badf4f890a3c82e6070",
+        "sha256:aaf35efcb95f6c74dc6d2c489268bdc592ce101c990729280980da140647e63f",
+        "sha256:c79d77af46518dfd4e94d3eb3a989a43f06c08f481ab3a709bc5cd5570bb0fe2"
+    ],
+    "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "NODE_VERSION=12.10.0",
+        "YARN_VERSION=1.17.3",
+        "HOME=/home/node"
+    ]
+}
+```
+
+```console
+$ skopeo --insecure-policy copy docker://dbevenius/faas-js-example oci:faas-js-example-oci:latest
+Getting image source signatures
+Copying blob e7c96db7181b done
+Copying blob 95b3c812425e done
+Copying blob 778b81d0468f done
+Copying blob 28549a15ba3e done
+Copying blob 0bcb2f6e53a7 done
+Copying blob 5a4ed7db773a done
+Copying blob aaf35efcb95f done
+Copying blob c79d77af4651 done
+Copying config c5b8673f93 done
+Writing manifest to image destination
+Storing signatures
+```
+We can take a look at the directory layout:
+```console
+$ ls faas-js-example-oci/
+blobs		index.json	oci-layout
+```
+Lets take a look at index.json:
+```json
+$ cat index.json | python3 -m json.tool
+{
+    "schemaVersion": 2,
+    "manifests": [
+        {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:be5c2a500a597f725e633753796f1d06d3388cee84f9b66ffd6ede3e61544077",
+            "size": 1440,
+            "annotations": {
+                "org.opencontainers.image.ref.name": "latest"
+            }
+        }
+    ]
+}
+```
+I'm on a mac so I'm going to use a docker to run a container and mount the
+directory containing our example:
+```console
+$ docker run --privileged -ti -v $PWD/faas-js-example-oci:/root/faas-js-example-oci fedora /bin/bash
+$ cd /root/faas-js-example-oci
+$ dnf install -y runc
+$ dnf install dnf-plugins-core
+$ dnf copr enable ganto/umoci
+$ dnf install umoci
+```
+
+We can now use `unoci` to unpack the image into a OCI bundle:
+```console
+$ umoci unpack --image faas-js-example-oci:latest faas-js-example-bundle
+[root@2a3b333ff24b ~]# ls faas-js-example-bundle/
+config.json  rootfs  sha256_be5c2a500a597f725e633753796f1d06d3388cee84f9b66ffd6ede3e61544077.mtree  umoci.json
+```
+`rootfs` will be the filesystem to be mounted and the configuration of the process
+can be found in [config.json](https://github.com/opencontainers/runtime-spec/blob/master/config.md).
+
+So we now have an idea of what a container is, a process, but what creates these
+processes. This is the responsibility of a container runtime. Docker contributed
+a runtime that they extracted named `runC`. There are others as well which I might
+expand upon later but for now just know that this is not the only possibly runtime.
+
+Something worth noting though is that these runtimes follow a specification that
+describes what is to be run. These runtime operate on a [filesystem bundle](https://github.com/opencontainers/runtime-spec/blob/master/bundle.md)
+
+
+We can run this bundle using [runC]():
+```console
+$ runc create --bundle faas-js-example-bundle faas-js-example-container
+$ runc list
+ID                          PID         STATUS      BUNDLE                         CREATED                        OWNER
+faas-js-example-container   31          created     /root/faas-js-example-bundle   2019-12-09T12:55:40.8534462Z   root
+```
+
+runC does not deal with any image registries and only runs applications that are
+packaged in the OCI format. So what ever executes runC would have to somehow
+get the images into this format (bundle) and execute runC with that bundle.
+
+
+```console
+$ docker build -t dbevenius/faas-js-example .
+```
+The [build](https://github.com/docker/cli/blob/master/cli/command/image/build.go)
+command will call [runBuild](https://github.com/docker/cli/blob/master/cli/command/image/build.go)
+
+
 This filesystem is tarred (.tar) and metadata is added.
 
 So, lets save an image to a tar:
@@ -117,6 +247,12 @@ isolation you can join them using namespaces which how a pod is created. This
 is how a pod can share the one IP address as they are in the same networking
 namespace. And remember that a container is just a process, so these are multiple
 processes that can share some resources with each other.
+
+### containerd
+Is a container supervisor (process monitor). It does not run the containers itself, that is done
+by runC. Instread it deals with container lifecycle operations. It can do image
+transfers and storage, low-level storage, network attachements.
+It is indended to be embedded.
 
 #### Kubernetes Custom Resources
 Are extentions of the Kubernetes API. A resource is simply an endpoint in the
@@ -325,12 +461,19 @@ So we have our service deployed, we have a source for generating events which
 sends events to a channel, and we have a subscription that connects the channel
 to our service. Lets see if this works with our js-example.
 
-Next we will create a source for events:
-For this we first need to install the in-memory channel:
+Sometimes when reading examples online you might copy one and it fails to deploy
+saying that the resoures does not exist. For example:
 ```console
-$ ko apply -f config/channels/in-memory-channel/
+error: unable to recognize "channel.yaml": no matches for kind "Channel" in version "eventing.knative.dev/v1alpha1"
 ```
+If this happens and you have installed a channel resource you an use the following
+command to find the correct `apiVersion` to use:
+```
+$ kubectl api-resources | grep channel
+channels                          ch              messaging.knative.dev              true         Channel
+inmemorychannels                  imc             messaging.knative.dev              true         InMemoryChannel
 
+Next we will create a source for events:
 
 ```console
 $ kubectl describe sources
