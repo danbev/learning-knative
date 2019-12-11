@@ -163,6 +163,287 @@ runC does not deal with any image registries and only runs applications that are
 packaged in the OCI format. So what ever executes runC would have to somehow
 get the images into this format (bundle) and execute runC with that bundle.
 
+So what calls runC?   
+This is done by a component named `containerd` which is a container supervisor
+(process monitor). It does not run the containers itself, that is done
+by runC. Instead it deals with container lifecycle operations of containers run
+by runC. Actually there is a runtime shim API allowing other runtimes to be used
+instead of runC.
+
+
+Containerd contains a Container Runtime Interface (CRI) API which is a gRPC API
+. The API implementation uses the containerd Go client to call into containerd. 
+Other clients that use the containerd Go client are Docker, Pouch, ctr.
+
+```
++-----------+        +--------------------+
+| Kublet    | gRPC   | containerd daemon  |
+|           | ------>|+------------+      |
++-----------+        || CRI Plugin |      |
+                     ||+--------+  |      |
+                     |||CRI API |  |      |
+                     ||+--------+  |      |
+                     |+------------+      |
+                     |                    |
+```
+
+```console
+$ wget https://github.com/containerd/containerd/archive/v1.3.0.zip
+$ unzip v1.3.0.zip
+```
+
+Building a docker image to play around with containerd and runc:
+```console
+$ docker build -t containerd-dev .
+$ docker run -it --privileged \
+    -v /var/lib/containerd \
+    -v ${GOPATH}/src/github.com/opencontainers/runc:/go/src/github.com/opencontainers/runc \
+    -v ${GOPATH}/src/github.com/containerd/containerd:/go/src/github.com/containerd/containerd \
+    -e GOPATH=/go \
+    -w /go/src/github.com/containerd/containerd containerd-dev sh
+
+$ make && make install
+$ cd /go/src/github.com/opencontainers/runc
+$ make BUILDTAGS='seccomp apparmor' && make install
+
+$ containerd --config config.toml
+```
+You can now attach to the same container and we can try out ctr and other commands:
+```console
+$ docker ps
+$ docker exec -ti <CONTAINER_ID> sh
+```
+So lets try pulling an image:
+```console
+$ ctr image pull docker.io/library/alpine:latest
+docker.io/library/alpine:latest:                                                  resolved       |++++++++++++++++++++++++++++++++++++++|
+index-sha256:c19173c5ada610a5989151111163d28a67368362762534d8a8121ce95cf2bd5a:    done           |++++++++++++++++++++++++++++++++++++++|
+manifest-sha256:e4355b66995c96b4b468159fc5c7e3540fcef961189ca13fee877798649f531a: done           |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:89d9c30c1d48bac627e5c6cb0d1ed1eec28e7dbdfbcc04712e4c79c0f83faf17:    done           |++++++++++++++++++++++++++++++++++++++|
+config-sha256:965ea09ff2ebd2b9eeec88cd822ce156f6674c7e99be082c7efac3c62f3ff652:   done           |++++++++++++++++++++++++++++++++++++++|
+elapsed: 2.5 s                                                                    total:  1.9 Mi (772.0 KiB/s)
+unpacking linux/amd64 sha256:c19173c5ada610a5989151111163d28a67368362762534d8a8121ce95cf2bd5a...
+done
+```
+The looks good. Next, lets see if we can run it:
+```console
+# ctr run docker.io/library/alpine:latest some_container_id echo "bajja"
+bajja
+```
+
+So `containerd` is the daemon (long running background process) which exposes
+a gRPC API over a local Unix socket (so there is not network traffic involved).
+containerd supports the OCI Image Specification so any image that exists in upstream
+repositories.
+OCI Runtime Specification support allows any container runtime that support that
+spec to be run, like `runC`, `rkt`.
+Supports image pull and push.
+A Task is a live running process on the system.
+
+`ctr` is a command line tool for interacting with containerd. 
+
+So, how could we run our above container using containerd?  
+```console
+$ docker exec -ti 78e22cb726b9 /bin/bash
+$ cd /root/go/src/github.com/containerd/containerd/bin
+$ ctr --debug images pull --user dbevenius:xxxx docker.io/dbevenius/faas-js-example:latest
+```
+The first thing that happens is containerd will fetch the the data from the remove, 
+in this case docker and store this in the content store:
+```console
+$ ctr content ls
+```
+Fetch will update the metadata store and add a record that the image. The second
+stage is the Unpack stage which will read the content and reads the layers from
+the content store and unpack them into the snapshotter.
+
+```console
+$ ctr images ls
+REF                                        TYPE                                                 DIGEST                                                                  SIZE     PLATFORMS  LABELS
+docker.io/dbevenius/faas-js-example:latest application/vnd.docker.distribution.manifest.v2+json sha256:69cc8b6087f355b7e4b2344587ae665c61a067ee05876acc3a5b15ca2b15e763 28.9 MiB linux/amd64 -
+
+
+$ ctr content ls | grep sha256:69cc8b6087f355b7e4b2344587ae665c61a067ee05876acc3a5b15ca2b15e763
+DIGEST									SIZE	AGE		LABELS
+sha256:69cc8b6087f355b7e4b2344587ae665c61a067ee05876acc3a5b15ca2b15e763	1.99kB	About an hour	containerd.io/gc.ref.content.2=sha256:95b3c812425e243848db3a3eb63e1e461f24a63fb2ec9aa61bcf5a553e280c07,containerd.io/gc.ref.content.4=sha256:28549a15ba3eb287d204a7c67fdb84e9d7992c7af1ca3809b6d8c9e37ebc9877,containerd.io/gc.ref.content.6=sha256:5a4ed7db773aa044d8c7d54860c6eff0f22aee8ee56d4badf4f890a3c82e6070,containerd.io/gc.ref.content.1=sha256:e7c96db7181be991f19a9fb6975cdbbd73c65f4a2681348e63a141a2192a5f10,containerd.io/gc.ref.content.7=sha256:aaf35efcb95f6c74dc6d2c489268bdc592ce101c990729280980da140647e63f,containerd.io/gc.ref.content.8=sha256:c79d77af46518dfd4e94d3eb3a989a43f06c08f481ab3a709bc5cd5570bb0fe2,containerd.io/gc.ref.content.3=sha256:778b81d0468fbe956db39aca7059653428a7a15031c9483b63cb33798fcdadfa,containerd.io/gc.ref.content.0=sha256:3e98616b38fe8a6943029ed434345adc3f01fd63dce3bec54600eb0c9e03bdff,containerd.io/distribution.source.docker.io=dbevenius/faas-js-example,containerd.io/gc.ref.content.5=sha256:0bcb2f6e53a714f0095f58973932760648f1138f240c99f1750be308befd943
+
+$ ctr snapshots info faas-js-example-container
+{
+    "Kind": "Active",
+    "Name": "faas-js-example-container",
+    "Parent": "sha256:0e7d0af5a24eb910a700e2b293e4ae3b6a4b0ed5c277233ae7a62810cfe9c831",
+    "Created": "2019-12-11T09:58:39.8149122Z",
+    "Updated": "2019-12-11T09:58:39.8149122Z"
+}
+$ ctr snapshots tree
+ sha256:f1b5933fe4b5f49bbe8258745cf396afe07e625bdab3168e364daf7c956b6b81
+  \_ sha256:0a57385ee1dd96a86f16bfc33e7e8f3b03ba5054d663e4249e9798f15def762d
+    \_ sha256:ebd0af597629452dee5e09da6b0bbecc93288d4910d49cef417097e1319e8e5f
+      \_ sha256:fae0635457a678fa17ba41dc06cffc00c339c3c760515d8fd95f4c54d111ce4d
+        \_ sha256:8e7ae562c333ef89a5ce0a5a49236ada5c7241e7788adbf5fe20fd3f6e2eb97d
+          \_ sha256:323ec4a838fe67b66e8fa8e4fb649f569be22c9a7119bb59664c106c1af8e5b1
+            \_ sha256:f4238a21a85c3d721b54f2304a671aa56cc593a436e2fe554f88369c527672f0
+              \_ sha256:0e7d0af5a24eb910a700e2b293e4ae3b6a4b0ed5c277233ae7a62810cfe9c831
+                \_ faas-js-example-container
+```
+
+So this is the information that will be available after a pull.
+
+So we should now be able to run this image using ctr:
+```console
+$ ctr run docker.io/dbevenius/faas-js-example:latest faas-js-example-container
++ umask 000
++ cd /home/node/usr
++ '[' -f package.json ]
++ cd ../src
++ node .
+{"level":30,"time":1576058320396,"pid":9,"hostname":"d51fc5895172","msg":"Server listening at http://0.0.0.0:8080","v":1}
+FaaS framework initialized
+```
+Run read the image we want to run and create the OCI specification from it. It
+will create a new read/write layer in the snapshotter. Then it will setup the
+container which will have a new rootfs. When the runtime shim is asked to start
+the process is will take the OCI specification and create a bundle directory:
+
+```console
+$ ls /run/containerd/io.containerd.runtime.v2.task/default/faas-js-example-container
+address  config.json  init.pid	log  log.json  rootfs  runtime	work
+```
+We could use this directory to start a container just with `runc` if we wanted too:
+```console
+$ runc create -bundle /run/containerd/io.containerd.runtime.v2.task/default/faas-js-example-container/ faas-js-example-container2
+$ runc list
+ID                           PID         STATUS      BUNDLE                                                                            CREATED                        OWNER
+faas-js-example-container2   5732        created     /run/containerd/io.containerd.runtime.v2.task/default/faas-js-example-container   2019-12-11T11:37:08.5385797Z   root
+```
+
+So we have launched a container using `ctr` which uses containerd go-client, and
+the contains runtime used is runc.
+
+We can attach another process and the inspect things:
+
+List all the containers:
+```console
+$ ctr containers ls
+CONTAINER                    IMAGE                                         RUNTIME
+faas-js-example-container    docker.io/dbevenius/faas-js-example:latest    io.containerd.runc.v2
+```
+Get info about a specific container:
+```console
+$ ctr container info faas-js-example-container
+{
+    "ID": "faas-js-example-container",
+    "Labels": {
+        "io.containerd.image.config.stop-signal": "SIGTERM"
+    },
+    "Image": "docker.io/dbevenius/faas-js-example:latest",
+    "Runtime": {
+        "Name": "io.containerd.runc.v2",
+        "Options": {
+            "type_url": "containerd.runc.v1.Options"
+        }
+    },
+    "SnapshotKey": "faas-js-example-container",
+    "Snapshotter": "overlayfs",
+    "CreatedAt": "2019-12-11T09:58:39.8637501Z",
+    "UpdatedAt": "2019-12-11T09:58:39.8637501Z",
+    "Extensions": null,
+    "Spec": {
+        "ociVersion": "1.0.1-dev",
+        "process": {
+            "user": {
+                "uid": 1001,
+                "gid": 0
+            },
+            "args": [
+                "docker-entrypoint.sh",
+                "/home/node/src/run.sh"
+            ],
+    ...
+```
+Notice the `SnapshotKey` which is `faas-js-example-container` and that it matches
+the output from when we used the `ctr snapshots` command above.
+
+Get information about running processes (tasks):
+```console
+# ctr tasks ls
+TASK                         PID     STATUS
+faas-js-example-container    5299    RUNNING
+```
+Lets take a look at that pid:
+```console
+# ps 5299
+  PID TTY      STAT   TIME COMMAND
+ 5299 ?        Ss     0:00 /bin/sh /home/node/src/run.sh
+```
+So this is the actual container/process.
+
+```console
+$ ps aux | grep faas-js
+root      5254  0.0  0.4 943588 26996 pts/1    Sl+  09:58   0:00 ctr run docker.io/dbevenius/faas-js-example:latest faas-js-example-container
+root      5276  0.0  0.1 111996  6568 pts/0    Sl   09:58   0:00 /usr/local/bin/containerd-shim-runc-v2 -namespace default -id faas-js-example-container -address /run/containerd/containerd.sock
+```
+So process `5454` is the process we used to start the containers. Notice the
+second process which is using `containerd-shim-runc-v2`
+
+```console
+# /usr/local/bin/containerd-shim-runc-v2 --help
+Usage of /usr/local/bin/containerd-shim-runc-v2:
+  -address string
+    	grpc address back to main containerd
+  -bundle string
+    	path to the bundle if not workdir
+  -debug
+    	enable debug output in logs
+  -id string
+    	id of the task
+  -namespace string
+    	namespace that owns the shim
+  -publish-binary string
+    	path to publish binary (used for publishing events) (default "containerd")
+  -socket string
+    	abstract socket path to serve
+```
+This binary can be found in `cmd/containerd-shim-runc-v2/main.go`.
+TODO: Take a closer look at how this is implemented.
+
+So, we now have an idea of what is involved when running containerd and runc, 
+and which process on the system we can inspect. We will now turn our attention
+to kubernetes and kubelet to see how it uses containerd.
+
+In a kubernetes cluster worker node will have a kubelet daemon running which
+processes pod specs and uses the information in the pod specs to start containers.
+It originally did so by using docker as the container runtime. There are other
+container runtime, for example rkt, and to be able to switch out the container
+runtime an interface needed to be provided to enable this. This interface is 
+called the Kubernetes Container Runtime Interface (CRI).
+
+```
++------------+                 +--------------+      +------------+
+| Kubelet    |                 |  CRI Shim    |      |  Container |<---> Container_0
+|            |  CRI protobuf   |              |<---->|  Runtime   |<---> Container_1
+| gRPC Client| --------------->| gRPC Server  |      |(containerd)|<---> Container_n
++------------+                 +--------------+      +------------+
+```
+The CRI Shim I think is a plugin in containerd enabling it to access lower level
+services in containerd without having to go through the "normal" client API. This
+might be useful to make a single API call that performs multiple containerd services
+instead of having to go via the client API which might require multiple calls.
+
+
+```console
+$ docker run -ti fedora /bin/bash
+$ dnf install -y kubernetes-node
+$ vi /etc/kubernetes/kubelet
+KUBELET_ARGS="--cgroup-driver=systemd --fail-swap-on=false --pod-manifest-path=/root/pods"
+```
+
+
+containerd [services](https://github.com/containerd/containerd/tree/master/services).
+
+```console
+$ ./ctr containers create --bundle faas-js-example-bundle faas-js-example-container
+
 
 ```console
 $ docker build -t dbevenius/faas-js-example .
@@ -248,11 +529,6 @@ is how a pod can share the one IP address as they are in the same networking
 namespace. And remember that a container is just a process, so these are multiple
 processes that can share some resources with each other.
 
-### containerd
-Is a container supervisor (process monitor). It does not run the containers itself, that is done
-by runC. Instread it deals with container lifecycle operations. It can do image
-transfers and storage, low-level storage, network attachements.
-It is indended to be embedded.
 
 #### Kubernetes Custom Resources
 Are extentions of the Kubernetes API. A resource is simply an endpoint in the
