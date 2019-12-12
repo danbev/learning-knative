@@ -618,13 +618,15 @@ member.example.nodeshift.com/dan created
 ```
 Now if we again try to list the resources we will see an entry in the `items` list.
 ```console
-$ kubectl get something -o yaml
+$ kubectl get members -o yaml -v=7
 ```
+The extra `-v=7` flag gives verbose output and might be useful to know about.
+
 And we can get all Something's using:
 ```console
-$ kubectl get Something
-$ kubectl describe Something
-$ kubectl describe Something/dan
+$ kubectl get Member
+$ kubectl describe Member
+$ kubectl describe Member/dan
 ```
 
 ```console
