@@ -25,6 +25,39 @@ Also it is worth mentioning that a running container is process (think unix proc
 which has a separate control group (cgroup), and namespace (mnt, IPC, net, usr, pid,
 and uts (Unix Time Share system)).
 
+### Namespaces
+The namespace API consists of three system calls:
+* clone
+* unshare
+* setns
+
+A namespace can be created using `clone`:
+```c
+int clone(int (*child_func)(void *), void *child_stack, int flags, void *arg);
+```
+The `child_func` is a function pointer to the function that the new child process
+will execute, and `arg` are the arguments that that function might take. Linux
+also has the `fork` system call which also creates a child
+process, but clone allows control over the things that get shared between the
+parent and the child process. Things like if they should share the virtual
+address space, the file descriptor table, the signal handler table, and also
+allows the new process to be placed in separate namespaces. This is controlled
+by the `flags` parameter. This is also how threads are created on Linux and
+the kernel has the same internal representation for this which is the `task_struct`
+
+`child_stack` specifies the location of the stack used by the child process.
+
+There is an example of the `clone` systemcall in [clone.c](./clone.c) which
+can be comiled and run using the following commands:
+```console
+$ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
+$ gcc -o clone clone.c
+$ ./clone
+```
+The goal of this is just to give an example and show the names of the flags that
+control the namespaces. 
+`
+
 ##### cgroups
 cgroups allows the Linux OS to manage and monitor resources allocated to a process
 and also set limits for things like CPU, memory, network. This is so that one
@@ -436,21 +469,17 @@ $ docker run -ti fedora /bin/bash
 $ dnf install -y kubernetes-node
 $ vi /etc/kubernetes/kubelet
 KUBELET_ARGS="--cgroup-driver=systemd --fail-swap-on=false --pod-manifest-path=/root/pods"
-```
-
-
-containerd [services](https://github.com/containerd/containerd/tree/master/services).
-
+$ vi /etc/kubernetes/config
+KUBE_ALLOW_PRIV="--allow-privileged=true"
+$ systemctl daemon-reload
 ```console
-$ ./ctr containers create --bundle faas-js-example-bundle faas-js-example-container
-
+```
 
 ```console
 $ docker build -t dbevenius/faas-js-example .
 ```
 The [build](https://github.com/docker/cli/blob/master/cli/command/image/build.go)
 command will call [runBuild](https://github.com/docker/cli/blob/master/cli/command/image/build.go)
-
 
 This filesystem is tarred (.tar) and metadata is added.
 
@@ -503,16 +532,6 @@ repositories:
 3e98616b38fe8a6943029ed434345adc3f01fd63dce3bec54600eb0c9e03bdff.json:
 This file contains the configuration of the container.
 
-When a image is to be run, the above information is passed to a container runtime
-which might be from Docker or rkt. There is component called libcontainer which
-I think is now `runC` which is a universal container runtime. 
-
-The next part is me guessing a little but with the metadata about the container
-shown above and in each of the directories (hashes) there is a layer.tar which
-contains the files for that layer. The container runtime will create the
-cgroup, the namespaces, and mount the union filesystem. The process resulting
-from this is the container.
-
 When we build a Docker image we specify a base image and that is usually a
 specific operating system. This is not a full OS but instead all the libraries
 and utilities expected to be found by the application. They kernel used is the
@@ -528,7 +547,6 @@ isolation you can join them using namespaces which how a pod is created. This
 is how a pod can share the one IP address as they are in the same networking
 namespace. And remember that a container is just a process, so these are multiple
 processes that can share some resources with each other.
-
 
 #### Kubernetes Custom Resources
 Are extentions of the Kubernetes API. A resource is simply an endpoint in the
