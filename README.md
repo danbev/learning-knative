@@ -564,17 +564,24 @@ So the customer resource just allows for storing and retrieving structured data,
 and to have functionality you have custom controllers.
 
 #### Controllers
-Each controller is responible for a particular resource.
+Each controller is responsible for a particular resource.
 
 Controller components:
 ```
 1) Informer/SharedInformer
-Watches the current state of the resource instances and sends events to the
+A resource can be watched which verb in the exposed REST API. When this is used
+there will be a long running connection, a http/2 stream, of event changes to
+the resource (create, update, delete, etc). 
+
+Watches the current state of resource instances and sends events to the
 Workqueue. The informer gets the information about an object it sends a request
-to the API server. Instread of each informater caching the objects it is interested
+to the API server. Instead of each informer caching the objects it is interested
 in multiple controllers might be interested in the same resource object. Instead
 of them each caching the data/state they can share the cache among themselves,
 this is what a SharedInformer does.
+
+The informers also contain error handling for the long running connection breaks
+, it will take care of reconnecting. 
 
 Resource Event Handler handles the notifications when changes occur.
 type ResourceEventHandlerFuncs struct {
@@ -597,17 +604,17 @@ I'm using CodeReady Container(crc) so I'll be using some none kubernetes command
 ```
 $ oc login -u kubeadmin -p e4FEb-9dxdF-9N2wH-Dj7B8 https://api.crc.testing:6443
 $ oc new-project my-controller
-$ kubectl create -f docs/crd.yaml
-customresourcedefinition.apiextensions.k8s.io/somethings.example.nodeshift created
+$ kubectl create  -f k8s-controller/docs/crd.yaml
+customresourcedefinition.apiextensions.k8s.io/members.example.nodeshift.com created
 ```
 We can try to access `somthings` using:
 ```console
-$ kubectl get something -o yaml
+$ kubectl get member -o yaml
 ```
 But there will not be anything in there get. We have to create something using
 ```console
-$ kubectl create -f docs/member.yaml
-something.example.nodeshift/dan created
+$ kubectl apply -f k8s-controller/docs/member.yaml
+member.example.nodeshift.com/dan created
 ```
 Now if we again try to list the resources we will see an entry in the `items` list.
 ```console
