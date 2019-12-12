@@ -53,6 +53,11 @@ can be comiled and run using the following commands:
 $ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
 $ gcc -o clone clone.c
 $ ./clone
+parent pid: 81
+child hostname: child_host
+child pid: 1
+child ppid: 0
+parent hostname: caa66b227dfe
 ```
 The goal of this is just to give an example and show the names of the flags that
 control the namespaces. 
