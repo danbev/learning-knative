@@ -13,3 +13,5 @@ spec:
     plural: members
     singular: member
     kind: Member
+  categories:
+    - all
