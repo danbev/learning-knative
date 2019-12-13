@@ -152,6 +152,56 @@ The component responsible for this work, setting the limits for cgroups, configu
 the namespaces, mounting the filesystem, and starting the process is the
 responsibility of the container runtime
 
+
+##### capabilities
+A process in Linux can be either privileged or unprivileged. Capabilities allows
+limiting the privileges for the superuser, so that if the program is compromised
+it will not have all privileges and hopefully not be able to do as much harm. 
+As an example, if you have a web server and you want it to listen to port 80 which
+requires root permission. But giving the web server root permission will allow
+it to to much more. Instead the binary can be given the CAP_NET_BIND_SERVICE
+capability.
+
+
+Are privileges that can be enabled per process(thread/task). The root user,
+effective user id 0 (EUID 0) has all capabilities enabled. The Linux kernel
+always checks the capabilites and does not check that the user is root (EUID 0).
+
+You can use the following command to list the capabilities:
+```console
+$ capsh --print
+```
+```console
+$ cat /proc/1/task/1/status
+...
+CapInh:	0000003fffffffff
+CapPrm:	0000003fffffffff
+CapEff:	0000003fffffffff
+CapBnd:	0000003fffffffff
+CapAmb:	0000000000000000
+...
+
+```console
+$ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
+$ chmod u-s /bin/ping 
+$ adduser danbev
+$ ping localhost
+ping: socket: Operation not permitted
+```
+Lets add the CAP_NET_RAW capability:
+```console
+$ setcap cap_net_raw+p /bin/ping
+$ su - danbev
+$ ping -c 1 localhost
+PING localhost (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost (127.0.0.1): icmp_seq=1 ttl=64 time=0.053 ms
+
+--- localhost ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.053/0.053/0.053/0.000 ms
+```
+
+
 What about an docker image, what does it look like?  
 
 We can use a tool named skopeo and umoci to inspect and find out more about
@@ -665,7 +715,7 @@ Items in this queue are taken by workers to perform work.
 ```
 
 #### Custom Resource Def/Controller example
-[k8s-controller](./k8s-controller) is an example of a custom resource controller
+[rust-controller](./rust-controller) is an example of a custom resource controller
 written in Rust. The goal is to understand how these work with the end goal being
 able to understand how other controllers are written and how they are installed
 and work. 
