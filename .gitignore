@@ -1,1 +1,3 @@
 clone
+seccomp
+seccomp_bpf

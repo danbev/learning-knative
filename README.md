@@ -21,9 +21,11 @@ A container image, it has all the libraries, file it needs to run. It does not
 have an entire OS but instead uses the underlying hosts kernel which saves space
 compared to a separate VM. 
 
-Also it is worth mentioning that a running container is process (think unix process)
+Also it is worth mentioning that a running container is a process (think unix process)
 which has a separate control group (cgroup), and namespace (mnt, IPC, net, usr, pid,
-and uts (Unix Time Share system)).
+and uts (Unix Time Share system)). It would also include seccomp (Secure Computing mode)
+which is a way to filter the system calls allowed to be performed. 
+
 
 ### Namespaces
 The namespace API consists of three system calls:
@@ -48,7 +50,7 @@ the kernel has the same internal representation for this which is the `task_stru
 `child_stack` specifies the location of the stack used by the child process.
 
 There is an example of the `clone` systemcall in [clone.c](./clone.c) which
-can be comiled and run using the following commands:
+can be compiled and run using the following commands:
 ```console
 $ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
 $ gcc -o clone clone.c
@@ -67,6 +69,74 @@ control the namespaces.
 cgroups allows the Linux OS to manage and monitor resources allocated to a process
 and also set limits for things like CPU, memory, network. This is so that one
 process is not allowed to hog all the resources and affect others. 
+
+##### secccomp (Secure Computing)
+Is a Linux kernel feature that restricts the system calls a process can call.
+So if someone was to gain access they would not be able to use any other system
+call than the ones that were specified.
+
+The command that controls this is named `prctl` (process control).
+```console
+$ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
+$ gcc -o seccomp seccomp.c
+./seccomp
+pid: 351
+setting restrictions...
+running with restrictions. Allowed system calls areread(), write(), exit()
+try calling getpid()
+Killed
+```
+We can run this with strace to see the system calls being made:
+```console
+$ apt-get update
+$ apt-get install strace
+root@d978e6c92dca:~/src# strace ./seccomp
+execve("./seccomp", ["./seccomp"], 0x7fff025d34c0 /* 10 vars */) = 0
+brk(NULL)                               = 0x1f2d000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+fstat(3, {st_mode=S_IFREG|0644, st_size=37087, ...}) = 0
+mmap(NULL, 37087, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f1985142000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\260A\2\0\0\0\0\0"..., 832) = 832
+fstat(3, {st_mode=S_IFREG|0755, st_size=1824496, ...}) = 0
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f1985140000
+mmap(NULL, 1837056, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f1984f7f000
+mprotect(0x7f1984fa1000, 1658880, PROT_NONE) = 0
+mmap(0x7f1984fa1000, 1343488, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x22000) = 0x7f1984fa1000
+mmap(0x7f19850e9000, 311296, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x16a000) = 0x7f19850e9000
+mmap(0x7f1985136000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1b6000) = 0x7f1985136000
+mmap(0x7f198513c000, 14336, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f198513c000
+close(3)                                = 0
+arch_prctl(ARCH_SET_FS, 0x7f1985141500) = 0
+mprotect(0x7f1985136000, 16384, PROT_READ) = 0
+mprotect(0x403000, 4096, PROT_READ)     = 0
+mprotect(0x7f1985173000, 4096, PROT_READ) = 0
+munmap(0x7f1985142000, 37087)           = 0
+getpid()                                = 350
+fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0), ...}) = 0
+brk(NULL)                               = 0x1f2d000
+brk(0x1f4e000)                          = 0x1f4e000
+write(1, "pid: 350\n", 9pid: 350
+)               = 9
+write(1, "setting restrictions...\n", 24setting restrictions...
+) = 24
+prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT) = 0
+write(1, "running with restrictions. Allow"..., 75running with restrictions. Allowed system calls areread(), write(), exit()
+) = 75
+write(1, "try calling getpid()\n", 21try calling getpid()
+)  = 21
+getpid()                                = ?
++++ killed by SIGKILL +++
+Killed
+```
+In this case we were not able to specify exactly which system calls are allowed
+but this can be done using Berkley Paket Filtering (BPF).
+```console
+$ apt-get install libseccomp-dev
+$ gcc -lseccomp -o seccomp_bpf seccomp_bpf.c
+```
 
 ##### namespaces
 Are used to isolate process from each other. Each container will have its own
@@ -627,6 +697,11 @@ And we can get all Something's using:
 $ kubectl get Member
 $ kubectl describe Member
 $ kubectl describe Member/dan
+```
+
+You can see all the available short names using `api-resources`
+```console
+$ kubectl api-resources
 ```
 
 ```console
@@ -1295,3 +1370,6 @@ I had to unset CC and CXX for this to work:
 $ unset CC
 $ unset CXX
 ```
+
+### go-client
+Is a web service client library written in go (k8s.io/client-go).
