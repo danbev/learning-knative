@@ -209,6 +209,11 @@ $ su danbev
 $ ping -c 1 localhost
 ```
 
+#### Apparmor
+Is a mandatory access control framework which uses whitelist/blacklist for
+the access to objects, like file, paths etc. So this can limit what files 
+a process can access for example.
+
 What about an docker image, what does it look like?  
 
 We can use a tool named skopeo and umoci to inspect and find out more about
