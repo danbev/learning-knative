@@ -201,6 +201,13 @@ PING localhost (127.0.0.1) 56(84) bytes of data.
 rtt min/avg/max/mdev = 0.053/0.053/0.053/0.000 ms
 ```
 
+We can specify capabilities when we start docker instead of using `--privileged`
+as this:
+```console
+$ docker run -ti --cap-add=NEW_RAW -v$PWD:/root/src -w /root/src gcc
+$ su danbev
+$ ping -c 1 localhost
+```
 
 What about an docker image, what does it look like?  
 
