@@ -601,8 +601,9 @@ to kubernetes and kubelet to see how it uses containerd.
 
 
 ### Kubelet
-In a kubernetes cluster worker node will have a kubelet daemon running which
+In a kubernetes cluster, a worker node will have a kubelet daemon running which
 processes pod specs and uses the information in the pod specs to start containers.
+
 It originally did so by using docker as the container runtime. There are other
 container runtime, for example rkt, and to be able to switch out the container
 runtime an interface needed to be provided to enable this. This interface is 
@@ -622,22 +623,21 @@ instead of having to go via the client API which might require multiple calls.
 
 
 ```console
-$ docker run -ti fedora /bin/bash
+$ docker run --privileged -ti fedora /bin/bash
 $ dnf install -y kubernetes-node
-$ vi /etc/kubernetes/kubelet
-KUBELET_ARGS="--cgroup-driver=systemd --fail-swap-on=false --pod-manifest-path=/root/pods"
-$ vi /etc/kubernetes/config
-KUBE_ALLOW_PRIV="--allow-privileged=true"
-$ systemctl daemon-reload
+$ dockerd
+```
+Next connect to the same container, remember just another process in the same
+namespace etc:
 ```console
+$ docker run -ti --privileged fedora /bin/bash
+$ kubelet --fail-swap-on=false
 ```
 
+#### Contents of an image
 ```console
 $ docker build -t dbevenius/faas-js-example .
 ```
-The [build](https://github.com/docker/cli/blob/master/cli/command/image/build.go)
-command will call [runBuild](https://github.com/docker/cli/blob/master/cli/command/image/build.go)
-
 This filesystem is tarred (.tar) and metadata is added.
 
 So, lets save an image to a tar:
