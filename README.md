@@ -239,6 +239,7 @@ The component responsible for all this work, setting the limits for cgroups, con
 the namespaces, mounting the filesystem, and starting the process is the
 responsibility of the container runtime.
 
+### Image format
 
 What about an docker image, what does it look like?  
 
