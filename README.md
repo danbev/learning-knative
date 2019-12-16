@@ -145,10 +145,27 @@ Are used to isolate process from each other. Each container will have its own
 namespace but it is also possible for multiple containers to be in the same
 namespace which is what the deployment unit of kubernetes is; the pod.
 
+###### PID (CLONE_NEWPID)
 In a `pid` namespace your process becomes PID 1. You can only see this process
 and child processes, all others on the underlying host system are "gone".
 
-A `net` namespace for isolating network ip/ports.
+###### UTS (CLONE_NEWUTS)
+Isolates `domainname` and `hostname` allowing each container to have its own
+hostname and NIS domain name. The hostnaame and domain name are retrived by
+the [uname](http://man7.org/linux/man-pages/man2/uname.2.html) system call and
+the struct passed into this function is named `utsname` (UNIX Time-share System)
+
+###### IPC (CLONE_NEWIPC)
+Isolate System V IPC Objects and POSIX message queues. Each namespace will have
+its own set of these.
+
+
+###### Network (CLONE_NEWIPC)
+A `net` namespace for isolating network ip/ports, IP routing tables.
+
+###### User (CLONE_NEWUSER)
+Isolates user and group IDs.
+
 
 The component responsible for this work, setting the limits for cgroups, configuring
 the namespaces, mounting the filesystem, and starting the process is the
