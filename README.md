@@ -23,9 +23,11 @@ compared to a separate VM.
 
 Also it is worth mentioning that a running container is a process (think unix process)
 which has a separate control group (cgroup), and namespace (mnt, IPC, net, usr, pid,
-and uts (Unix Time Share system)). It would also include seccomp (Secure Computing mode)
-which is a way to filter the system calls allowed to be performed. 
-
+and uts (Unix Time Share system)). It could also include seccomp (Secure Computing mode)
+which is a way to filter the system calls allowed to be performed, apparmor (prevents
+access to files the process should not access), and linux capabilities (reducing
+what a privileged process can do). More on these three security features can be found later in this
+document.
 
 ### Namespaces
 The namespace API consists of three system calls:
