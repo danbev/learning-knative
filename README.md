@@ -167,9 +167,6 @@ A `net` namespace for isolating network ip/ports, IP routing tables.
 Isolates user and group IDs.
 
 
-The component responsible for this work, setting the limits for cgroups, configuring
-the namespaces, mounting the filesystem, and starting the process is the
-responsibility of the container runtime
 
 
 ##### capabilities
@@ -227,11 +224,15 @@ $ docker run -ti --cap-add=NEW_RAW -v$PWD:/root/src -w /root/src gcc
 $ su danbev
 $ ping -c 1 localhost
 ```
-
 #### Apparmor
 Is a mandatory access control framework which uses whitelist/blacklist for
 the access to objects, like file, paths etc. So this can limit what files 
 a process can access for example.
+
+
+The component responsible for all this work, setting the limits for cgroups, configuring
+the namespaces, mounting the filesystem, and starting the process is the
+responsibility of the container runtime.
 
 What about an docker image, what does it look like?  
 
