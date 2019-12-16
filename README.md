@@ -340,8 +340,11 @@ config.json  rootfs  sha256_be5c2a500a597f725e633753796f1d06d3388cee84f9b66ffd6e
 can be found in [config.json](https://github.com/opencontainers/runtime-spec/blob/master/config.md).
 
 So we now have an idea of what a container is, a process, but what creates these
-processes. This is the responsibility of a container runtime. Docker contributed
-a runtime that they extracted named `runC`. There are others as well which I might
+processes. This is the responsibility of a container runtime. 
+
+
+### Container runtime
+Docker contributed a runtime that they extracted named `runC`. There are others as well which I might
 expand upon later but for now just know that this is not the only possibly runtime.
 
 Something worth noting though is that these runtimes follow a specification that
@@ -371,18 +374,6 @@ instead of runC.
 Containerd contains a Container Runtime Interface (CRI) API which is a gRPC API
 . The API implementation uses the containerd Go client to call into containerd. 
 Other clients that use the containerd Go client are Docker, Pouch, ctr.
-
-```
-+-----------+        +--------------------+
-| Kublet    | gRPC   | containerd daemon  |
-|           | ------>|+------------+      |
-+-----------+        || CRI Plugin |      |
-                     ||+--------+  |      |
-                     |||CRI API |  |      |
-                     ||+--------+  |      |
-                     |+------------+      |
-                     |                    |
-```
 
 ```console
 $ wget https://github.com/containerd/containerd/archive/v1.3.0.zip
@@ -608,6 +599,8 @@ So, we now have an idea of what is involved when running containerd and runc,
 and which process on the system we can inspect. We will now turn our attention
 to kubernetes and kubelet to see how it uses containerd.
 
+
+### Kubelet
 In a kubernetes cluster worker node will have a kubelet daemon running which
 processes pod specs and uses the information in the pod specs to start containers.
 It originally did so by using docker as the container runtime. There are other
