@@ -196,7 +196,8 @@ CapEff:	0000003fffffffff
 CapBnd:	0000003fffffffff
 CapAmb:	0000000000000000
 ...
-
+```
+Example of using capabilities:
 ```console
 $ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
 $ chmod u-s /bin/ping 
@@ -204,7 +205,10 @@ $ adduser danbev
 $ ping localhost
 ping: socket: Operation not permitted
 ```
-Lets add the CAP_NET_RAW capability:
+We first removed the `setuid` for ping and then added a new user and verified
+that they cannot use ping and get the error above.
+
+Next, lets add the CAP_NET_RAW capability:
 ```console
 $ setcap cap_net_raw+p /bin/ping
 $ su - danbev
@@ -224,6 +228,7 @@ $ docker run -ti --cap-add=NEW_RAW -v$PWD:/root/src -w /root/src gcc
 $ su danbev
 $ ping -c 1 localhost
 ```
+
 #### Apparmor
 Is a mandatory access control framework which uses whitelist/blacklist for
 the access to objects, like file, paths etc. So this can limit what files 
@@ -234,9 +239,10 @@ The component responsible for all this work, setting the limits for cgroups, con
 the namespaces, mounting the filesystem, and starting the process is the
 responsibility of the container runtime.
 
+
 What about an docker image, what does it look like?  
 
-We can use a tool named skopeo and umoci to inspect and find out more about
+We can use a tool named `skopeo` and `umoci` to inspect and find out more about
 images.
 ```console
 $ brew install skopeo
@@ -790,6 +796,29 @@ $ kubectl api-resources
 $ kubectl config current-context
 default/api-crc-testing:6443/kube:admin
 ```
+
+### go-controller
+This is a controller written in go. The motivation for having two is that most
+controllers I've seen are written in go and having an understanding of the code
+and directory structure of one will help understand others.
+
+First to get all the dependencies onto our system we are going to use 
+sample-controller from the kubernetes project:
+```console
+$ go get k8s.io/sample-controller
+```
+We should now be able to build our `go-controller`:
+```
+$ unset CC CXX
+$ cd go-controller 
+$ go mod vendor
+$ go build -o go-controller .
+```
+
+```console
+$ ./go-controller -kubeconfig=$HOME/.kube/config
+```
+
 
 Building/Running:
 ```
