@@ -720,8 +720,8 @@ Each controller is responsible for a particular resource.
 
 Controller components:
 ```
-1) Informer/SharedInformer
-A resource can be watched which verb in the exposed REST API. When this is used
+##### Informer/SharedInformer
+A resource can be watched which is a verb in the exposed REST API. When this is used
 there will be a long running connection, a http/2 stream, of event changes to
 the resource (create, update, delete, etc). 
 
@@ -736,15 +736,16 @@ The informers also contain error handling for the long running connection breaks
 , it will take care of reconnecting. 
 
 Resource Event Handler handles the notifications when changes occur.
+```rust
 type ResourceEventHandlerFuncs struct {
 	AddFunc    func(obj interface{})
 	UpdateFunc func(oldObj, newObj interface{})
 	DeleteFunc func(obj interface{})
 }
-
-2) Workqueue
-Items in this queue are taken by workers to perform work.
 ```
+
+##### Workqueue
+Items in this queue are taken by workers to perform work.
 
 #### Custom Resource Def/Controller example
 [rust-controller](./rust-controller) is an example of a custom resource controller
@@ -1396,6 +1397,9 @@ Makes sure that the containers are running in the pod. The information it uses
 is the PodSpecs.
 
 ##### Kube-proxy
+Just like kubelet is responsible for starting containers, kubeproxy is responsible
+for making services work. It watches for service events and creates, updates,
+or deletes kube-proxies on the worker node.
 Maintains networking rules on nodes. It uses the OS packet filtering layer if
 available.
 
@@ -1478,3 +1482,27 @@ $ unset CXX
 
 ### go-client
 Is a web service client library written in go (k8s.io/client-go).
+
+
+### Kubernetes on AWS
+You can setup an Amazon Elastic Computing (EC2) node on thier freetier which only
+has one CPU. It is possible to run minikube on that with a flag to avoid a CPU
+check as shown below:
+```console
+$ ssh -i ~/.ssh/some_aws_key.pem ec2-user@ec2-18-225-37-245.us-east-2.compute.amazonaws.com
+$ sudo yum update
+$ sudo yum install -y docker
+$ curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+$ sudo -i
+$ /usr/local/bin/minikube start --vm-driver=none --extra-config=kubeadm.ignore-preflight-errors=NumCPU --force --cpus 1
+$ sudo mv /root/.kube /root/.minikube $HOME
+$ sudo chown -R $USER $HOME/.kube $HOME/.minikube
+```
+After this it should be possible to list the resources available on the cluster:
+```console
+$ kubectl api-resources
+```
+Now, we want to be able to interact with this cluster from our local machine. To
+enable this we need to add a configuration for this cluster to ~/.kube/config:
+TODO: figure out how to set this up.
+
