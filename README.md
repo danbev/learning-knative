@@ -160,8 +160,134 @@ Isolate System V IPC Objects and POSIX message queues. Each namespace will have
 its own set of these.
 
 
-###### Network (CLONE_NEWIPC)
+###### Network (CLONE_NEWNET)
 A `net` namespace for isolating network ip/ports, IP routing tables.
+
+The following is an example of creating a network namespace just to get a feel
+for what is involved.
+```console
+$ docker run --privileged -ti centos /bin/bash
+```
+A network namespace can be created using `ip netns`:
+```console
+$ ip netns add something
+$ ip netns list
+something
+```
+With a namespace created we can add virtual ethernet (veth) interfaces to it. These
+come in pairs and can be thought of as a cable between the namespace and the outside
+world (which is usually a bridge in the kubernetes case I think). So the other end
+would be connected to the bridge. Multiple namespaces can be connected to the same
+bridge.
+
+First we can create a virtual ethernet pair (veth pair) named `v0` and `v1`:
+```console
+$ ip link add v0 type veth peer name v1
+$ ip link list
+...
+4: v1@v0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 8e:3f:28:e1:e8:d9 brd ff:ff:ff:ff:ff:ff
+5: v0@v1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1e:35:a5:17:76:6d brd ff:ff:ff:ff:ff:ff
+...
+```
+Next, we add one end of the virtual ethernet pair to the namespace we created:
+```console
+$ ip link set v1 netns something
+```
+We also want to give `v1` and ip address and enable it:
+```console
+$ ip netns exec something ip address add 172.16.0.1 dev v1
+$ ip netns exec something ip link set v1 up
+$ ip link set dev v0 up
+$ ip netns exec something ip address show dev v1
+4: v1@if5: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state LOWERLAYERDOWN group default qlen 1000
+    link/ether 9a:56:bf:12:32:0d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 172.16.0.1/32 scope global v1
+       valid_lft forever preferred_lft forever
+```
+We can find the ip address of eth0 in the default namespace using:
+```console
+$ ip address show dev eth0
+86: eth0@if87: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+```
+So can we ping that address from our `something` namespace?
+```console
+$ ip netns exec something ping 172.17.0.2
+connect: Network is unreachable
+```
+No, we can't because there is no routing table for the namespace:
+```console
+$ ip netns exec something ip route list
+```
+We should be able to add a default route that sends anything not on host to `v1`:
+```console
+$ ip netns exec something ip route add default via 172.16.0.1 dev v1
+```
+We also need to add a route for this container in the host so that the return
+packet can be routed back:
+```console
+$ ip route add 172.16.0.1/32 dev v0
+$ ip netns exec something ip link set lo up
+```
+With that in place we should be able to ping:
+```console
+$ ip netns exec something ping 172.17.0.2
+ip netns exec something ping 172.17.0.2
+PING 172.17.0.2 (172.17.0.2) 56(84) bytes of data.
+64 bytes from 172.17.0.2: icmp_seq=1 ttl=64 time=0.052 ms
+64 bytes from 172.17.0.2: icmp_seq=2 ttl=64 time=0.079 ms
+...
+```
+Notice that we have only added a namespace and not started a process/container. It is
+in fact the kernel networking stack that is replying to this ping.
+
+This would look something like the following:
+```
+     +--------------------------------------------------------+
+     |     Default namespace                                  |
+     | +---------------------------------------------------+  |
+     | |  something namespace                              |  |
+     | | +--------------+  +-----------------------------+ |  |
+     | | | v1:172.16.0.1|  | routing table               | |  |
+     | + +--------------+  |default via 172.16.0.1 dev v1| |  |
+     | |   |               +-----------------------------+ |  |
+     | +---|-----------------------------------------------+  |
+     |     |                                                  |
+     |   +----+                                               |
+     |   | v0 |                                               |
+     |   +----+                                               |
+     |                                                        |
+     |   +----+            +------------------------------+   |
+     |   |eth0|            | routing table                |   |
+     |   +----+            |172.16.0.1 dev v0 scope link  |   |
+     |                     +------------------------------+   |
+     +--------------------------------------------------------+
+```
+
+So we have see how we can have a single namespace on a host. If we want to add
+more namespaces, those namespaces not only have to be able to connect with the
+host but also with each other.
+
+Lets start by adding a second namespace:
+```console
+
+```
+
+We need a bridge to connect all (just on in this case) the containers in the 
+same namespace with each other
+
+
+Now, we want this veth to be able to connect to the outside world. For this
+a bridge is used:
+```console
+$ ip link add br0 type bridge
+$ ip link set eth0 master br0
+$ ip link set v0 master br0
+```
 
 ###### User (CLONE_NEWUSER)
 Isolates user and group IDs.
