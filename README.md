@@ -336,7 +336,19 @@ After having done this our configuration should look something like this:
      |                     +-------------------------------+                                                     |
      +-----------------------------------------------------------------------------------------------------------+
 ```
-If you have docker deployed the bridge would be named `docker0`. 
+If you have docker deployed the bridge would be named `docker0`. For example:
+```console
+$ docker run -it --rm --privileged --pid=host justincormack/nsenter1
+$ ip link list
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+    link/ether 02:50:00:00:00:01 brd ff:ff:ff:ff:ff:ff
+5: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default
+    link/ether 02:42:88:76:10:4c brd ff:ff:ff:ff:ff:ff
+87: veth2a62021@if86: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master docker0 state UP mode DEFAULT group default
+    link/ether 2e:70:0c:6d:61:aa brd ff:ff:ff:ff:ff:ff link-netnsid 0
+89: veth24a8a43@if88: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master docker0 state UP mode DEFAULT group default
+    link/ether d2:69:da:8b:99:b6 brd ff:ff:ff:ff:ff:ff link-netnsid 1
+```
 
 ###### User (CLONE_NEWUSER)
 Isolates user and group IDs.
