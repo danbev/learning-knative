@@ -274,20 +274,69 @@ host but also with each other.
 
 Lets start by adding a second namespace:
 ```console
-
+$ ip link add v2 type veth peer name v3
+$ ip netns add something2
+$ ip link set v3 netns something2
+$ ip netns exec something2 ip address add 172.16.0.2 dev v3
+$ ip netns exec something2 ip link set v3 up
+$ ip netns exec something2 ip link set lo up
+$ ip link set dev v2 up
+$ ip netns exec something2 ip route add default via 172.16.0.2 dev v3
 ```
 
-We need a bridge to connect all (just on in this case) the containers in the 
-same namespace with each other
-
-
-Now, we want this veth to be able to connect to the outside world. For this
-a bridge is used:
 ```console
-$ ip link add br0 type bridge
-$ ip link set eth0 master br0
-$ ip link set v0 master br0
+$ ip link add bridge0 type bridge
+$ ip link set dev v0 master bridge0
+$ ip link set dev v2 master bridge0
+$ ip address add 172.168.0.3/24 dev bridge0
+$ ip link dev bridge 0 up
 ```
+
+We can verify that we can ping from the `something` namesspace to `something2`:
+```console
+$ ip netns exec something ping 172.16.0.2
+PING 172.16.0.2 (172.16.0.2) 56(84) bytes of data.
+64 bytes from 172.16.0.2: icmp_seq=1 ttl=64 time=0.338 ms
+
+$ ip netns exec something2 ping 172.16.0.1
+PING 172.16.0.1 (172.16.0.1) 56(84) bytes of data.
+64 bytes from 172.16.0.1: icmp_seq=1 ttl=64 time=0.061 ms
+```
+But can we ping the second container from the host?
+```console
+$ ping 172.16.0.2
+PING 172.16.0.2 (172.16.0.2) 56(84) bytes of data.
+...
+```
+For this to work we need a route in the host:
+```console
+$ ip route add 172.16.0.0/24 dev bridge0
+```
+
+After having done this our configuration should look something like this:
+```
+     +-----------------------------------------------------------------------------------------------------------+
+     |     Default namespace                                                                                     |
+     | +---------------------------------------------------+ +-------------------------------------------------+ |
+     | |  something namespace                              | | something2 namespace                            | |
+     | | +--------------+  +-----------------------------+ | | +-------------+ +-----------------------------+ | |
+     | | | v1:172.16.0.1|  | routing table               | | | |v3:172.16.0.2| | routing table               | | |
+     | + +--------------+  |default via 172.16.0.1 dev v1| | | +-------------+ |default via 172.16.0.2 dev v3| | |
+     | |   |               +-----------------------------+ | |    |            +-----------------------------+ | |
+     | +---|-----------------------------------------------+ +----|--------------------------------------------+ |
+     |     |                                                      |                                              |
+     |   +------------------------------------------------------------------------------------------------+      |
+     |   | | v0 |             bridge0                           | v2 |                                    |      |
+     |   | +----+           72.168.0.3                          +----+                                    |      |
+     |   +------------------------------------------------------------------------------------------------+      |
+     |                                                                                                           |
+     |   +----+            +-------------------------------+                                                     |
+     |   |eth0|            | routing table                 |                                                     |
+     |   +----+            |172.16.0.0/24 dev bridge0 scope|                                                     |
+     |                     +-------------------------------+                                                     |
+     +-----------------------------------------------------------------------------------------------------------+
+```
+If you have docker deployed the bridge would be named `docker0`. 
 
 ###### User (CLONE_NEWUSER)
 Isolates user and group IDs.
