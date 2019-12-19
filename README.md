@@ -1633,11 +1633,132 @@ them, and if there are not enough it will create more. Pods maintined by this
 controller are automatically replace if deleted, which is not the case for manually
 create pods.
 
-### Kubernetes Deployment
+
+### Container networking
+Docker networking uses the kernel's networking stack as low level primitives to
+create higher level network drivers.
+
+We have seen how a linux bridge can be used to connect containers on the same
+host. But what if we have containers on different host that need to communicate?  
+There are multiple solutions to this and one is using VXLAN, or a Macvlan and
+perhaps others. As these are new to me I'm going to go through what they are
+to help me understand networking in kubernetes better.
+
+#### Virtual Local Area Network (VLAN)
+To separate two networks they had to be physically separated. For example, you
+might have a guest network which should not be allowed to connect to the internal
+network. These two should not be able to communicate with each other so there
+was simply no connection between the hosts on one network to host on the other.
+The hosts would be connected to separate switches.
+
+VLANs provide logical separation/segmentation, so we can have all hosts connected
+to one switch but they can still be separated into separate logical networks.
+This also allows host to be located a different locations as they don't have to
+be connected to the physical switch (which was not possible with pre-vlan). With
+vlan it does not matter where the hosts are, different floors/building/locations.
+
+#### Virtual Extended Local Area Network (VXLAN)
+VLANs are limited to 4094 VLANs but VXLANS allow for more which might be required
+in a cloud environment. Is supported by the linux kernel.
+
+#### Macvlan
+Macvlan provides MAC hardware addresses to each container allowing them to become
+part of the traditional network and use IPAM or VLAN trunking.
 
 
-A controller is a client of Kubernetes. When Kubernetes is the client and calls
-out to a remote service, it is called a Webhook. 
+#### Overlay network
+The physical network is called the underlay and an overly abstracts this to
+create a virtual network.
+
+
+
+### Kubernetes Networking
+So, we understand that containers in the same namespace is what a pod is. And
+they will share the same network namespace hence have the same ip address, and
+share the same iptables, and ip routing rules. In the namespaces section above
+we also saw how multiple namespaces and communicate with each other.
+
+So, a pod will have an ip address (all the processes in the same namespace) and
+the worker node that the pod is running on will also have a ip:
+```
++--------------------------+
+|     worker node0         |
+|  +------------+          |
+|  |     pod    |          |
+|  | 172.16.0.2 |          |
+|  +------------+          |
+|                          |
+|      ip: 10.0.1.3        |
+|pod cidr: 10.255.0.0/24   |
++--------------------------+
+```
+
+```
++-------------------------------------+
+|     service                         |
+|selector:                            |
+|port:80:7777                         |
+|port:8080:7777                       |
+|type:ClusterIP|NodePort|LoadBalancer |
++-------------------------------------+
+The `ClusterIP` is assigned by a controller manager for this service. This will
+be unique across the whole cluster. This can also be a dns name.
+So you can have applications point to the cluster ip and even if the underlying
+target pods are moved/scaled they will still continue to work. There is really
+nothing behind the clusterid, like there is no container or anything like that.
+Instead the cluster ip is a target for iptables. So when a packet destined for
+the cluster ip address it will get routed by iptables to the actual pods that
+implement that service. 
+Kubeproxy will watch for services and endpoints and update iptables on that worker
+node. So if an endpoint is removed iptables can be updated to remove that entry.
+
+The `NodePort` type deals with getting traffic from outside of the cluster. 
+```
++-------------------------------------+
+|     service                         |
+|selector:                            |
+|port:32599:80:7777                   |
+|type:NodePort                        |
++-------------------------------------+
+```
+The port `32599` will be an entry in iptables for each node. So we can now use
+the node ip:32599 to get to the service. 
+
+The `LoadBalancer` type is cloud specific and allows for a nicer was to access
+services from outside the cluster and not having to use the nodeip:port. The
+load balancer will still point to the NodePort so it builds on top of it.
+
+#### Container Network Interface (CNI)
+The following is from the [cni-plugin](https://github.com/containernetworking/cni/blob/master/SPEC.md#cni-plugin) 
+section:
+```
+A CNI plugin is responsible for inserting a network interface into the container
+network namespace (e.g. one end of a veth pair) and making any necessary changes
+on the host (e.g. attaching the other end of the veth into a bridge). It should
+then assign the IP to the interface and setup the routes consistent with the IP
+Address Management section by invoking appropriate IPAM plugin.
+```
+This should hopefully sound familiar and is very similar to what we did in the
+network namespace section. 
+The kubelet specifies the CNI to be used as a command line option.
+
+
+### tun/tap
+Are software only interfaces
+
+```console
+$ docker run --privileged -ti -v$PWD:/root/learning-knative -w/root/learning-knative gcc /bin/bash
+$ mkdir /dev/net
+$ mknod /dev/net/tun c 10 200
+$ ip tuntap add mode tun dev tun0
+$ ip addr add 10.0.0.0/24 dev tun0
+$ ip link set dev tun0 up
+$ ip route get 10.0.0.2
+
+$ gcc -o tun tun.c
+$ ./tun
+Device tun0 opened
+```
 
 
 #### Building Knative Eventing
