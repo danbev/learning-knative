@@ -906,7 +906,7 @@ and to have functionality you have custom controllers.
 Each controller is responsible for a particular resource.
 
 Controller components:
-```
+
 ##### Informer/SharedInformer
 A resource can be watched which is a verb in the exposed REST API. When this is used
 there will be a long running connection, a http/2 stream, of event changes to
@@ -1659,7 +1659,10 @@ vlan it does not matter where the hosts are, different floors/building/locations
 
 #### Virtual Extended Local Area Network (VXLAN)
 VLANs are limited to 4094 VLANs but VXLANS allow for more which might be required
-in a cloud environment. Is supported by the linux kernel.
+in a cloud environment. Is supported by the linux kernel and is a network tunnel.
+VXLAN tunnels layer 2 frames inside of UDP datagrams. This means that containers
+that are part of the same virtual local area network are on the same l2 network,
+but infact they are separated.
 
 #### Macvlan
 Macvlan provides MAC hardware addresses to each container allowing them to become
@@ -1668,7 +1671,11 @@ part of the traditional network and use IPAM or VLAN trunking.
 
 #### Overlay network
 The physical network is called the underlay and an overly abstracts this to
-create a virtual network.
+create a virtual network. Much like we did in the example of using a bridge in
+the networking example in this case a virtual tunnel endpoint (VTEP) is added
+to the bridge. This will then encapsulate the packet in a udp datagram with a
+few additional headers.
+VTEPs get their own MAC and IP addresses and show up as network interfaces 
 
 
 
@@ -1813,4 +1820,6 @@ $ kubectl api-resources
 Now, we want to be able to interact with this cluster from our local machine. To
 enable this we need to add a configuration for this cluster to ~/.kube/config:
 TODO: figure out how to set this up.
+In the meantime I'm just checking out this repository on the same ec2 instance
+and using a github personal access token to be able to work and commit.
 
