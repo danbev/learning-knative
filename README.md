@@ -1163,19 +1163,6 @@ Knative focuses on three key categories:
 ```
 
 
-### Building
-Go from source to container.
-
-There is active work to migrate Builds to Build Pipelines, a restructuring of
-builds in Knative that more closely resembles CI/CD pipelines. 
-This means builds in Knative, in addition to compiling and packaging your code,
-can also easily run tests and publish those results.
-TODO: Take a closer look at CI/CD pipelines.
-
-
-How do we reach out to services that require authentication at build-time?
-How do we pull code from a private Git repository or push container images to Docker Hub?
-
 #### Secrets
 Secrets allow us to securely store the credentials needed for these
 authenticated requests.
