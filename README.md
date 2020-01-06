@@ -1696,6 +1696,7 @@ the worker node that the pod is running on will also have a ip:
 |port:8080:7777                       |
 |type:ClusterIP|NodePort|LoadBalancer |
 +-------------------------------------+
+```
 The `ClusterIP` is assigned by a controller manager for this service. This will
 be unique across the whole cluster. This can also be a dns name.
 So you can have applications point to the cluster ip and even if the underlying
