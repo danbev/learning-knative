@@ -77,7 +77,8 @@ Is a Linux kernel feature that restricts the system calls a process can call.
 So if someone was to gain access they would not be able to use any other system
 call than the ones that were specified.
 
-The command that controls this is named `prctl` (process control).
+The command that controls this is named `prctl` (process control). There is an
+example of using `prctl` in [seccomp.c](./seccomp.c):
 ```console
 $ docker run -ti --privileged -v$PWD:/root/src -w /root/src gcc
 $ gcc -o seccomp seccomp.c
