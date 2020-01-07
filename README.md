@@ -1164,17 +1164,6 @@ Knative focuses on three key categories:
 ```
 
 
-#### Secrets
-Secrets allow us to securely store the credentials needed for these
-authenticated requests.
-
-#### Service Accounts.
-Service Accounts allow us the flexibility of providing and maintaining
-credentials for multiple Builds without manually configuring them each time we
-build a new application. So just really an object with a Secret which can
-be reused for multiple applications.
-
-
 ### Serving
 Automatically scale based on load, including scaling to zero when there is no load
 You deploy a prebuild image to the underlying kubernetes cluster.
