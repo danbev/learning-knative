@@ -135,7 +135,7 @@ getpid()                                = ?
 Killed
 ```
 In this case we were not able to specify exactly which system calls are allowed
-but this can be done using Berkley Paket Filtering (BPF).
+but this can be done using Berkley Paket Filtering (BPF). [seccomp_bpf.c](./seccomp_bpf.c):
 ```console
 $ apt-get install libseccomp-dev
 $ gcc -lseccomp -o seccomp_bpf seccomp_bpf.c
