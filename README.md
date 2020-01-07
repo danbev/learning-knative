@@ -1163,10 +1163,9 @@ Knative focuses on three key categories:
 * enabling applications to easily consume and produce events.
 ```
 
-
 ### Serving
-Automatically scale based on load, including scaling to zero when there is no load
-You deploy a prebuild image to the underlying kubernetes cluster.
+Automatically scale based on load, including scaling to zero when there is no load.
+You deploy a prebuilt image to the underlying kubernetes cluster.
 
 Serving contains a number of components/object which are described below:
 
@@ -1174,7 +1173,7 @@ Serving contains a number of components/object which are described below:
 This will contain a name reference to the container image to deploy. This
 ref is called a Revision.
 Example configuration (configuration.yaml):
-```
+```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
@@ -1277,83 +1276,6 @@ Examples:
 * Github
 * Container Sources
 
-
-### CloudEvent spec 1.0
-Mandatory:
-```
-id		string identifier
-source          url that identifies the context in which the event happend
-                type of event, etc. The source+id must be unique for each event.
-
-specversion
-type
-```
-Optional:
-```
-datacontenttype
-dataschema
-data
-subject
-time
-```
-Example:
-```json
-{
-    "specversion" : "1.0",
-    "type" : "com.github.pull.create",
-    "source" : "https://github.com/cloudevents/spec/pull",
-    "subject" : "123",
-    "id" : "A234-1234-1234",
-    "time" : "2018-04-05T17:31:00Z",
-    "comexampleextension1" : "value",
-    "comexampleothervalue" : 5,
-    "datacontenttype" : "text/xml",
-    "data" : "<much wow=\"xml\"/>"
-}
-```
-
-
-There is a http-protocol-binding specification:
-https://github.com/cloudevents/spec/blob/v1.0/http-protocol-binding.md
-
-This spec defines three content modes for transferring events:
-```
-1) binary
-2) structured
-3) batched
-```
-
-In the binary content mode, the value of the event data is placed into the HTTP
-request/response body as-is, with the datacontenttype attribute value declaring
-its media type in the HTTP Content-Type header; all other event attributes are
-mapped to HTTP headers.
-
-In the structured content mode, event metadata attributes and event data are
-placed into the HTTP request or response body using an event format.
-
-Event formats:
-These formats are used with structured content mode.
-
-This format can be one of different specs, for example there is one spec for
-a json format (https://github.com/cloudevents/spec/blob/v1.0/json-format.md).
-
-```
-Content-Type: application/cloudevents+json; charset=UTF-8
-```
-
-`datacontenttype` is expected to contain a media-type expression, for example
-`application/json;charset=utf-8`.  
-
-`data` is encoded using the above media-type.
-
-The content mode is chosen by the sender of the event.
-The receiver of the event can distinguish between the three modes by inspecting
-the Content-Type header value. If the value of this header is `application/cloudevents`
-it is a structured mode, if `application/cloudevents-batch` then it is batched,
-otherwise it the mode is binary.
-
-### HTTP Header names
-These headers all have a `ce-` prefix.
 
 
 #### Channels
@@ -1474,6 +1396,83 @@ then configure and manage Istio using its control plane functionality
 
 Istio’s traffic management model relies on the Envoy proxies that are deployed along with your services. 
 All traffic that your mesh services send and receive (data plane traffic) is proxied through Envoy, making it easy to direct and control traffic around your mesh without making any changes to your services.
+
+### CloudEvent spec 1.0
+Mandatory:
+```
+id		string identifier
+source          url that identifies the context in which the event happend
+                type of event, etc. The source+id must be unique for each event.
+
+specversion
+type
+```
+Optional:
+```
+datacontenttype
+dataschema
+data
+subject
+time
+```
+Example:
+```json
+{
+    "specversion" : "1.0",
+    "type" : "com.github.pull.create",
+    "source" : "https://github.com/cloudevents/spec/pull",
+    "subject" : "123",
+    "id" : "A234-1234-1234",
+    "time" : "2018-04-05T17:31:00Z",
+    "comexampleextension1" : "value",
+    "comexampleothervalue" : 5,
+    "datacontenttype" : "text/xml",
+    "data" : "<much wow=\"xml\"/>"
+}
+```
+
+
+There is a http-protocol-binding specification:
+https://github.com/cloudevents/spec/blob/v1.0/http-protocol-binding.md
+
+This spec defines three content modes for transferring events:
+```
+1) binary
+2) structured
+3) batched
+```
+
+In the binary content mode, the value of the event data is placed into the HTTP
+request/response body as-is, with the datacontenttype attribute value declaring
+its media type in the HTTP Content-Type header; all other event attributes are
+mapped to HTTP headers.
+
+In the structured content mode, event metadata attributes and event data are
+placed into the HTTP request or response body using an event format.
+
+Event formats:
+These formats are used with structured content mode.
+
+This format can be one of different specs, for example there is one spec for
+a json format (https://github.com/cloudevents/spec/blob/v1.0/json-format.md).
+
+```
+Content-Type: application/cloudevents+json; charset=UTF-8
+```
+
+`datacontenttype` is expected to contain a media-type expression, for example
+`application/json;charset=utf-8`.  
+
+`data` is encoded using the above media-type.
+
+The content mode is chosen by the sender of the event.
+The receiver of the event can distinguish between the three modes by inspecting
+the Content-Type header value. If the value of this header is `application/cloudevents`
+it is a structured mode, if `application/cloudevents-batch` then it is batched,
+otherwise it the mode is binary.
+
+### HTTP Header names
+These headers all have a `ce-` prefix.
 
 
 ### Helm
