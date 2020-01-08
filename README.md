@@ -1313,6 +1313,12 @@ getting swamped with requests and overloaded a service mesh is used which routes
 requests from one service to the next. This indirection allows for optimizations
 and re-routing where needed.
 
+Another reasons for having a service mesh like this is that a microservice
+architecture might be implemented in various different languages. These languages
+have different ways of doing things like providing stats, tracing, logging,
+retry, circuit breaking, rate limiting, authentication and authorization.
+This can make it difficult to debug latency and failures.
+
 In a service mesh, requests are routed between microservices through proxies in
 their own infrastructure layer. For this reason, individual proxies that make
 up a service mesh are sometimes called “sidecars,” since they run alongside each
@@ -1327,6 +1333,13 @@ mesh.
 
 These sidcars also allow for collecting metric about communication so that other
 services can be added to monitor or take actions based on changes to the network.
+The sidecar will do things like service discovery, load balancing, rate limiting,
+circuit breaking, retry, etc.
+So if serviceA want to call serviceB, serviceA will talk to its local sidecar
+proxy which will take care of calling serviceB, where ever that serviceB might
+be at the current time. So there services them are decoupled from each other
+and also don't have to be concerned with networking, they just communicate with
+the local sidecar proxy.
 
 Note that we have only been talking about communication between services and
 not communication with the outside world (outside of the service network/mesh).
@@ -1345,39 +1358,11 @@ In Istio this is called a control plan which has three components:
 2) Istio-Auth
 ```
 
-### Operators
-In OpenShift Operators are the preferred method of packaging, deploying, and
-managing services on the control plane. 
-
-### API Gateway
-An API Gateway is focused on offering a single entry point for external clients
-whereas a service mesh is for service to service communication. But there are
-a lot of features that both have in common. But there would be more overhead having
-an API gateway between all internal services (like latency for example).
-Ambassidor is an example of an API gateway.
-But an API gateway can be used at the entry point to a service mesh.
-
-
 ### Sidecar
 Is a utility container that supports the main container in a pod. Remember that
 a pod is a collection of one or more containers.
 
-
-### Envoy
-Is composed of two parts:
-1) Edge
-This gives a single point of ingress (external traffic; not internal to the
-service mesh).
-2) Service 
-This is a separate process that keeps an eye on the services. 
-
 All of these instances form a mesh and share routing information with each other.
-
-#### Configuration
-The configuration consists of listeners and clusters.
-
-A listener tells which port it should listen to. This can also have a filter
-associated with it.
 
 So to use Knative we need istio for the service mesh (communication between
 services), we also need to be able to access the target service externally which
@@ -1387,15 +1372,41 @@ So I need to install istio (or other service mesh) and an ingress to the
 kubernetes cluster and then Knative to be able to use Knative.
 
 ### Istio
-Is a service mesh.
- It is also a platform, including APIs that let it integrate into any logging
-platform, or telemetry or policy system
+Is a service mesh implementation and also a platform, including APIs that let
+it integrate into any logging platform, or telemetry or policy system
+
 You add Istio support to services by deploying a special sidecar proxy throughout
 your environment that intercepts all network communication between microservices,
 then configure and manage Istio using its control plane functionality
 
-Istio’s traffic management model relies on the Envoy proxies that are deployed along with your services. 
-All traffic that your mesh services send and receive (data plane traffic) is proxied through Envoy, making it easy to direct and control traffic around your mesh without making any changes to your services.
+Istio’s traffic management model relies on the Envoy proxies that are deployed
+along with your services.  All traffic that your mesh services send and receive
+(data plane traffic) is proxied through Envoy, making it easy to direct and
+control traffic around your mesh without making any changes to your services.
+
+### Envoy
+The goal on Envoy is to make the network transparent to applications. When issues
+occur they should be easy to figure out where the problem is.
+
+Envoy is an out of process architecture which is great when you have services
+written in multiple languages. If you opt for a library approach you have to
+have implementations in all the languages that you use (hysterix is an example).
+Envoy is a layer3/layer4 filter architecture (so network layer (IP), and transport
+layer (TCP/UDP). There is also a layer 7 (application layer) that can operate/filter
+http headers.
+
+Service discovery and active (ping the service)/passive (monitor the trafic) health
+checking.
+Has various load-balancing algorithms.
+Provides observability via stats, logging, and tracing.
+Authentication and authorization
+
+Envoy is used as both an Edge proxy and a service proxy.
+1) Edge proxy
+This gives a single point of ingress (external traffic; not internal to the
+service mesh).
+2) Service proxy
+This is a separate process that keeps an eye on the services. 
 
 ### CloudEvent spec 1.0
 Mandatory:
@@ -1799,3 +1810,15 @@ TODO: figure out how to set this up.
 In the meantime I'm just checking out this repository on the same ec2 instance
 and using a github personal access token to be able to work and commit.
 
+
+### Operators
+In OpenShift Operators are the preferred method of packaging, deploying, and
+managing services on the control plane. 
+
+### API Gateway
+An API Gateway is focused on offering a single entry point for external clients
+whereas a service mesh is for service to service communication. But there are
+a lot of features that both have in common. But there would be more overhead having
+an API gateway between all internal services (like latency for example).
+Ambassidor is an example of an API gateway.
+But an API gateway can be used at the entry point to a service mesh.
