@@ -1591,7 +1591,7 @@ Is a group of one or more containers with shared storage and network. Pods are
 the unit of scaling.
 A pod consists of a Linux namespace which is shared with all the containers in 
 the pod, which gives them access to each other. So a container is used for
-isolation you can join them using namespaces which how a pod is created. This
+isolation, you can join them using namespaces which how a pod is created. This
 is how a pod can share the one IP address as they are in the same networking
 namespace.
 
@@ -1624,7 +1624,7 @@ to help me understand networking in kubernetes better.
 To separate two networks they had to be physically separated. For example, you
 might have a guest network which should not be allowed to connect to the internal
 network. These two should not be able to communicate with each other so there
-was simply no connection between the hosts on one network to host on the other.
+was simply no connection between the hosts on one network to hosts on the other.
 The hosts would be connected to separate switches.
 
 VLANs provide logical separation/segmentation, so we can have all hosts connected
@@ -1634,16 +1634,15 @@ be connected to the physical switch (which was not possible with pre-vlan). With
 vlan it does not matter where the hosts are, different floors/building/locations.
 
 #### Virtual Extended Local Area Network (VXLAN)
-VLANs are limited to 4094 VLANs but VXLANS allow for more which might be required
-in a cloud environment. Is supported by the linux kernel and is a network tunnel.
-VXLAN tunnels layer 2 frames inside of UDP datagrams. This means that containers
-that are part of the same virtual local area network are on the same l2 network,
-but infact they are separated.
+VLANs are limited to 4094 VLANs but VXLANS allow for more than 4094 which might
+be required in a cloud environment. Is supported by the linux kernel and is a
+network tunnel. VXLAN tunnels layer 2 frames inside of UDP datagrams. This means
+that containers that are part of the same virtual local area network are on the
+same L2 network, but infact they are separated.
 
 #### Macvlan
 Macvlan provides MAC hardware addresses to each container allowing them to become
 part of the traditional network and use IPAM or VLAN trunking.
-
 
 #### Overlay network
 The physical network is called the underlay and an overly abstracts this to
@@ -1652,7 +1651,6 @@ the networking example in this case a virtual tunnel endpoint (VTEP) is added
 to the bridge. This will then encapsulate the packet in a udp datagram with a
 few additional headers.
 VTEPs get their own MAC and IP addresses and show up as network interfaces 
-
 
 
 ### Kubernetes Networking
@@ -1687,12 +1685,13 @@ the worker node that the pod is running on will also have a ip:
 ```
 The `ClusterIP` is assigned by a controller manager for this service. This will
 be unique across the whole cluster. This can also be a dns name.
-So you can have applications point to the cluster ip and even if the underlying
+So you can have applications point to the ClusterIP and even if the underlying
 target pods are moved/scaled they will still continue to work. There is really
-nothing behind the clusterid, like there is no container or anything like that.
+nothing behind the ClusterIP, like there is no container or anything like that.
 Instead the cluster ip is a target for iptables. So when a packet destined for
 the cluster ip address it will get routed by iptables to the actual pods that
 implement that service. 
+
 Kubeproxy will watch for services and endpoints and update iptables on that worker
 node. So if an endpoint is removed iptables can be updated to remove that entry.
 
@@ -1706,10 +1705,10 @@ The `NodePort` type deals with getting traffic from outside of the cluster.
 +-------------------------------------+
 ```
 The port `32599` will be an entry in iptables for each node. So we can now use
-the node ip:32599 to get to the service. 
+the `nodeip:32599` to get to the service. 
 
 The `LoadBalancer` type is cloud specific and allows for a nicer was to access
-services from outside the cluster and not having to use the nodeip:port. The
+services from outside the cluster and not having to use the `nodeip:port`. The
 load balancer will still point to the NodePort so it builds on top of it.
 
 #### Container Network Interface (CNI)
