@@ -1499,7 +1499,7 @@ chartname/
          charts
          crds (Custom Resourcde Definitions)
          templates
-
+```
 
 
 ### kubectl
