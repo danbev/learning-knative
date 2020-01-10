@@ -2,3 +2,4 @@ clone
 seccomp
 seccomp_bpf
 tun
+node_modules

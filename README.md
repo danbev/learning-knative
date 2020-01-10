@@ -1791,7 +1791,7 @@ You can setup an Amazon Elastic Computing (EC2) node on thier freetier which onl
 has one CPU. It is possible to run minikube on that with a flag to avoid a CPU
 check as shown below:
 ```console
-$ ssh -i ~/.ssh/some_aws_key.pem ec2-user@ec2-18-225-37-245.us-east-2.compute.amazonaws.com
+$ ssh -i ~/.ssh/aws_key.pem ec2-user@ec2-18-225-37-245.us-east-2.compute.amazonaws.com
 $ sudo yum update
 $ sudo yum install -y docker
 $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
@@ -1822,3 +1822,64 @@ a lot of features that both have in common. But there would be more overhead hav
 an API gateway between all internal services (like latency for example).
 Ambassidor is an example of an API gateway.
 But an API gateway can be used at the entry point to a service mesh.
+
+
+### gRPC
+A service is created by defining the functions it exposes and this is what the
+server application implements. The server side runs a gRPC server to handle calls
+to the service by decoding the incoming request, executing the method, and encoding
+the response. The service is defined using an interface definition language (IDL). 
+gRPC can use protocol buffers (see Protocol Buffers for more details) as its IDL
+and as its message format.
+
+The clients then generate a stub and can call functions on them locally. The nice
+thing is that clients can be generated in different languages, so the service
+could be written in one and then multiple clients stubs generated for languages
+that support gPRC.
+
+Just to give some context where gRPC is coming from is that it is being used
+in stead of Restful APIs in places. Restful APIs don't have a formal machine readable
+API contract. The clients need to be written. Streaming is difficult. The information
+sent over the wire is not efficient for networks. And many restful endpoints are
+not actually resources (get created with put/post, retreived using get, etc).
+
+gRPC is a protocol built on top of HTTP/2.
+There are three implementations:
+* C core - which is used by Ruby, Python, Node.js, PHP, C#, Objective-C, C++
+* Java (Netty + BoringSSL)
+* Go
+
+gRPC was originally developed as Google and the the internal name was `stubby`.
+
+### Protocol Buffers (protobuf)
+Is a mechanism for serializing structured data. You create file that defines the
+structure with a `.proto` extension:
+```console
+message Something {
+  string name;
+  int32 age;
+}
+```
+With this file created we can use the compiler `protoc` to generate data access 
+classes in the language you choose.
+
+A gRPC service is be created and it will use `message` types as the types of
+parameters and return values. The services themselves are specified using `rcp`:
+```
+syntax = "proto3";
+
+package lkn;
+
+service Something {
+  rpc doit (InputMsg) returns (OutputMsg);
+}
+
+message InputMsg{
+  string input = 1;
+}
+
+message OutputMsg{
+  string output = 1;
+}
+```
+The [gprc](./gprc) contains a node.js example of gRPC server and client.

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package lkn;
+
+service Something {
+  rpc doit(InputMsg) returns (OutputMsg) {}
+}
+
+message InputMsg {
+  string input = 1;
+}
+
+message OutputMsg {
+  string output = 1;
+}
