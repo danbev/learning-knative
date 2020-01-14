@@ -1722,6 +1722,32 @@ The `LoadBalancer` type is cloud specific and allows for a nicer was to access
 services from outside the cluster and not having to use the `nodeip:port`. The
 load balancer will still point to the NodePort so it builds on top of it.
 
+### IPTables
+Is a firewall tool that interfaces with the linux kernel `netfilter` subsystem.
+Kube-proxy attaches rules to the PRE_ROUTING for services.
+
+```console
+$ iptables -t nat -A PREROUTING -match conntrack -ctstate NEW -j KUBE_SERVICE
+```
+Above, we are adding a rule to the `nat` table by appending to the `PREROUTING`
+chain. The `match` specifies a iptables-extension which is specified as `conntrack`
+which allows access to the connection tracking state for this packet/connection.
+By specifying this extension we also can specify `ctstate` as `NEW`. Finally,
+the target is specified as `KUBE_SERVICE.
+
+```console
+$ iptables -A KUBE_SERVICES ! -s src_cidr -d dst_cidr -p tcp -m tcp --dport 80 -j KUBE_MARQ
+```
+This appends a rule to the KUBE_SERVICES chain. 
+TODO: add this from a real example.
+
+When a cluster grows to many services using iptables can be a cause of performace
+issues as it will be applied sequentially. The packet will be checked against the
+rule one by one until it is found, O(n). For this reason IP Virtual Server (IPVS)
+which is also a Linux kernel feature can be used. I think that this was also a
+reason for looking into other ways to avoid this overhead, and one such way is
+to use [eBPF](https://lwn.net/Articles/740157/). 
+
 #### Container Network Interface (CNI)
 The following is from the [cni-plugin](https://github.com/containernetworking/cni/blob/master/SPEC.md#cni-plugin) 
 section:
