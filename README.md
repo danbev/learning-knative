@@ -1027,17 +1027,9 @@ $ brew install minikube
 Next, we start minikube:
 ```console
 $ minikube start --memory=8192 --cpus=6 \
-  --kubernetes-version=v1.15.0 \
   --vm-driver=hyperkit \
   --disk-size=30g \
   --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
-```
-We are using 1.15.0 as this is the version the Istio is compatible with.
-Also, we need to have a version of `kubectl` that matches this version:
-```console
-$ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.0/bin/linux/amd64/kubectl
-$ chmod +x kubectl 
-$ sudo mv ./kubectl /usr/local/bin/kubectl 
 ```
 
 So, we should now have a kubernetes cluster up and running. 
@@ -1061,7 +1053,7 @@ etcd-0               Healthy   {"health":"true"}
 We now want to add Istio to it.
 ```console
 $ curl -L https://istio.io/downloadIstio | sh -
-$ kubectl apply -f istio-1.1.7/install/kubernetes/istio-demo.yaml
+$ kubectl apply -f istio-1.4.3/install/kubernetes/istio-demo.yaml
 ```
 
 Wait for the pods to be created:
