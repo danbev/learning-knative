@@ -1043,10 +1043,19 @@ $ sudo mv ./kubectl /usr/local/bin/kubectl
 So, we should now have a kubernetes cluster up and running. 
 ```console
 $ minikube status
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
 ```
 Show the status of the Control Plane components:
 ```console
 $ kubectl get componentstatuses
+NAME                 STATUS    MESSAGE             ERROR
+controller-manager   Healthy   ok                  
+scheduler            Healthy   ok                  
+etcd-0               Healthy   {"health":"true"}   
 ```
 
 We now want to add Istio to it.
