@@ -1909,3 +1909,22 @@ message OutputMsg{
 }
 ```
 The [gprc](./gprc) contains a node.js example of gRPC server and client.
+
+### Minikube on RHEL 8 issues
+```console
+💣  Unable to start VM. Please investigate and run 'minikube delete' if possible: create: Error creating machine: Error in driver during machine creation: ensuring active networks: starting network minikube-net: virError(Code=89, Domain=47, Message='The name org.fedoraproject.FirewallD1 was not provided by any .service files')
+
+😿  minikube is exiting due to an error. If the above message is not useful, open an issue:
+👉  https://github.com/kubernetes/minikube/issues/new/choose
+
+```
+I was able to work around this by running:
+```console
+$  sudo systemctl restart libvirtd
+```
+This was still not enough to get minikube to start though, I needed to delete
+minikube and start again:
+```
+$ minikube delete
+$ minikube start
+```
