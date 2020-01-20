@@ -1033,6 +1033,12 @@ $ minikube start --memory=8192 --cpus=6 \
   --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
 ```
 We are using 1.15.0 as this is the version the Istio is compatible with.
+Also, we need to have a version of `kubectl` that matches this version:
+```console
+$ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.0/bin/linux/amd64/kubectl
+$ chmod +x kubectl 
+$ sudo mv ./kubectl /usr/local/bin/kubectl 
+```
 
 So, we should now have a kubernetes cluster up and running. 
 ```console
