@@ -900,7 +900,7 @@ and things like that). You can add your own resources just like them using
 custom resources. After a custom resources is installed kubectl can be used to
 with it just like any other object.
 
-So the customer resource just allows for storing and retrieving structured data,
+So the custom resource just allows for storing and retrieving structured data,
 and to have functionality you have custom controllers.
 
 #### Controllers
