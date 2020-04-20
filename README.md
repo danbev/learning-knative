@@ -1473,6 +1473,22 @@ service mesh).
 This is a separate process that keeps an eye on the services. 
 
 ### CloudEvent spec 1.0
+This spec describes data in a common way to provide interoperability among
+servless providers so that that can events can generated and consumed by
+different cloud providers/languages.
+
+The spec consists of a base which is the contains the attributes for a
+CloudEvent.
+Then there is an extension to this which defines additional attributes which can
+be used by certain providers/consumers. One example of this given is tracing.
+Then there is event format encoding which defines how the base and extension
+information is mapped to headers and payload of an application protocol.
+Finally we have protocol bindings which defines how a CloudEvent is bound to
+an application protocol transport frame.
+
+There is a concept of Event Formats that specify how a CloudEvent is serialized
+into various encoding formats (for example JSON).
+
 Mandatory:
 ```
 id		string identifier
@@ -1517,15 +1533,17 @@ This spec defines three content modes for transferring events:
 3) batched
 ```
 
+#### Binary content mode
 In the binary content mode, the value of the event data is placed into the HTTP
 request/response body as-is, with the datacontenttype attribute value declaring
 its media type in the HTTP Content-Type header; all other event attributes are
 mapped to HTTP headers.
 
+#### Structured content mode
 In the structured content mode, event metadata attributes and event data are
 placed into the HTTP request or response body using an event format.
 
-Event formats:
+#### Event formats
 These formats are used with structured content mode.
 
 This format can be one of different specs, for example there is one spec for
