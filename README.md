@@ -1474,7 +1474,7 @@ This is a separate process that keeps an eye on the services.
 
 ### CloudEvent spec 1.0
 This spec describes data in a common way to provide interoperability among
-servless providers so that that can events can generated and consumed by
+serverless providers so that that can events can generated and consumed by
 different cloud providers/languages.
 
 The spec consists of a base which is the contains the attributes for a
