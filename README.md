@@ -1542,6 +1542,8 @@ mapped to HTTP headers.
 #### Structured content mode
 In the structured content mode, event metadata attributes and event data are
 placed into the HTTP request or response body using an event format.
+So if the event format is JSON the complete cloud event will be in the 
+http request/response body.
 
 #### Event formats
 These formats are used with structured content mode.
@@ -2010,3 +2012,20 @@ minikube and start again:
 $ minikube delete
 $ minikube start
 ```
+
+### Docker/Moby-engine on Fedora
+The default cgroups implementation on Fedora 31 and above is v2 which is not
+supported by the docker versions currently available for Fedora. You might see
+the following error:
+```
+$ docker run --rm hello-world:latest
+docker: Error response from daemon: OCI runtime create failed: this version of runc doesn't work on cgroups v2: unknown.
+```
+
+One option is to revert to using v1 by running the following command and
+the rebooting:
+```console
+sudo dnf install -y grubby && \
+  sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+```
+
