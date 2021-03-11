@@ -152,7 +152,7 @@ and child processes, all others on the underlying host system are "gone".
 
 ###### UTS (CLONE_NEWUTS)
 Isolates `domainname` and `hostname` allowing each container to have its own
-hostname and NIS domain name. The hostnaame and domain name are retrived by
+hostname and NIS domain name. The hostname and domain name are retrived by
 the [uname](http://man7.org/linux/man-pages/man2/uname.2.html) system call and
 the struct passed into this function is named `utsname` (UNIX Time-share System)
 
