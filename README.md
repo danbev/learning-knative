@@ -17,17 +17,17 @@ When a container is deployed what happens is that the above mentioned features
 are configured, a filesystem mounted, and a process is started. The metadata and
 the filesystem is contained in an image (more on this later).
 
-A container image, it has all the libraries, file it needs to run. It does not
-have an entire OS but instead uses the underlying hosts kernel which saves space
-compared to a separate VM. 
+A container image, it has all the libraries, files it needs to run. It does not
+have an entire OS but instead uses the underlying host's kernel which saves
+space compared to a separate VM. 
 
-Also it is worth mentioning that a running container is a process (think unix process)
-which has a separate control group (cgroup), and namespace (mnt, IPC, net, usr, pid,
-and uts (Unix Time Share system)). It could also include seccomp (Secure Computing mode)
-which is a way to filter the system calls allowed to be performed, apparmor (prevents
-access to files the process should not access), and linux capabilities (reducing
-what a privileged process can do). More on these three security features can be found later in this
-document.
+Also it is worth mentioning that a running container is a process (think unix
+process) which has a separate control group (cgroup), and namespace (mnt, IPC,
+net, usr, pid, and uts (Unix Time Share system)). It could also include seccomp
+(Secure Computing mode) which is a way to filter the system calls allowed to be
+performed, apparmor (prevents access to files the process should not access),
+and linux capabilities (reducing what a privileged process can do). More on
+these three security features can be found later in this document.
 
 ### Namespaces
 The namespace API consists of three system calls:
@@ -41,13 +41,13 @@ int clone(int (*child_func)(void *), void *child_stack, int flags, void *arg);
 ```
 The `child_func` is a function pointer to the function that the new child process
 will execute, and `arg` are the arguments that that function might take. Linux
-also has the `fork` system call which also creates a child
-process, but clone allows control over the things that get shared between the
-parent and the child process. Things like if they should share the virtual
-address space, the file descriptor table, the signal handler table, and also
-allows the new process to be placed in separate namespaces. This is controlled
-by the `flags` parameter. This is also how threads are created on Linux and
-the kernel has the same internal representation for this which is the `task_struct`
+also has the `fork` system call which also creates a child process, but clone
+allows control over the things that get shared between the parent and the child
+process. Things like if they should share the virtual address space, the file
+descriptor table, the signal handler table, and also allows the new process to
+be placed in separate namespaces. This is controlled by the `flags` parameter.
+This is also how threads are created on Linux and the kernel has the same
+internal representation for this which is the `task_struct`
 
 `child_stack` specifies the location of the stack used by the child process.
 
@@ -67,10 +67,119 @@ The goal of this is just to give an example and show the names of the flags that
 control the namespaces. 
 `
 
-##### cgroups
-cgroups allows the Linux OS to manage and monitor resources allocated to a process
-and also set limits for things like CPU, memory, network. This is so that one
-process is not allowed to hog all the resources and affect others. 
+##### cgroups (control groups)
+cgroups allows the Linux OS to manage and monitor resources allocated to a
+process and also set limits for things like CPU, memory, network. This is so
+that one process is not allowed to hog all the resources and affect others. 
+
+Subsystems:
+* blkio (or just io)
+Block I/O subsystem which limits I/O access to block devices (disk, SSD, USB)
+* cpu
+* cpuacct
+Automatic reports on cpu resources used by tasks in a cgroup
+* cpuset
+Assigns processors and memory to tasks in a group.
+* memory
+Sets limits on memory usage by tasks in a group.
+* devices
+Allows access to devices to tasks in a group.
+* freezer
+Allows supend/resumption of tasks in a group.
+* net_cls
+Allows the marking of network packets in a group.
+* net_prio
+Allows for a priority of networks packets to be set.
+* perf_event
+Allows access to perf events.
+* hugeltb
+Activates support for huge tables for a group.
+* pid
+Set the limit of allowed processes for a group.
+
+```
+$ cat /proc/cgroups 
+#subsys_name	hierarchy	num_cgroups	enabled
+cpuset	2	1	1
+cpu	7	14	1
+cpuacct	7	14	1
+blkio	6	14	1
+memory	11	170	1
+devices	3	72	1
+freezer	12	1	1
+net_cls	4	1	1
+perf_event	9	1	1
+net_prio	4	1	1
+hugetlb	5	1	1
+pids	8	76	1
+misc	10	1	1
+
+$ ls -l /sys/fs/cgroup/
+total 0
+dr-xr-xr-x. 12 root root  0 Sep  9 06:59 blkio
+lrwxrwxrwx.  1 root root 11 Sep  9 06:59 cpu -> cpu,cpuacct
+lrwxrwxrwx.  1 root root 11 Sep  9 06:59 cpuacct -> cpu,cpuacct
+dr-xr-xr-x. 12 root root  0 Sep  9 06:59 cpu,cpuacct
+dr-xr-xr-x.  2 root root  0 Sep  9 06:59 cpuset
+dr-xr-xr-x. 12 root root  0 Sep  9 06:59 devices
+dr-xr-xr-x.  2 root root  0 Sep  9 06:59 freezer
+dr-xr-xr-x.  2 root root  0 Sep  9 06:59 hugetlb
+dr-xr-xr-x. 12 root root  0 Sep  9 06:59 memory
+dr-xr-xr-x.  2 root root  0 Sep  9 06:59 misc
+lrwxrwxrwx.  1 root root 16 Sep  9 06:59 net_cls -> net_cls,net_prio
+dr-xr-xr-x.  2 root root  0 Sep  9 06:59 net_cls,net_prio
+lrwxrwxrwx.  1 root root 16 Sep  9 06:59 net_prio -> net_cls,net_prio
+dr-xr-xr-x.  2 root root  0 Sep  9 06:59 perf_event
+dr-xr-xr-x. 12 root root  0 Sep  9 06:59 pids
+dr-xr-xr-x. 13 root root  0 Sep  9 06:59 systemd
+dr-xr-xr-x. 13 root root  0 Sep  9 06:59 unified
+```
+
+```console
+$ cd /sys/fs/cgroup/devices/
+$ mkdir cgroups_test_group
+```
+Notice that after creating this directory there will be a number of files
+that will have been automatically generated:
+```console
+$ ls -l
+total 0
+-rw-r--r--. 1 root root 0 Sep 27 08:48 cgroup.clone_children
+-rw-r--r--. 1 root root 0 Sep 27 08:48 cgroup.procs
+--w-------. 1 root root 0 Sep 27 08:48 devices.allow
+--w-------. 1 root root 0 Sep 27 08:48 devices.deny
+-r--r--r--. 1 root root 0 Sep 27 08:48 devices.list
+-rw-r--r--. 1 root root 0 Sep 27 08:48 notify_on_release
+-rw-r--r--. 1 root root 0 Sep 27 08:48 tasks
+```
+Add the following line to devices.deny:
+```
+c 5:0 w
+```
+In this case we are denying access to the character device /dev/tty:
+```console
+$ ls -l /dev/tty
+crw-rw-rw-. 1 root tty 5, 0 Sep 27 09:08 /dev/tty
+```
+
+Now, lets start our print task:
+```console
+$ ./print.sh
+```
+And then from another terminal/console:
+```console
+$ su -
+$ echo $(pidof -x print.sh) > /sys/fs/cgroup/devices/cgroups_test_group/tasks
+```
+We output should be the following in the terminal that started print.sh:
+```console
+$ ./print.sh 
+bajja
+bajja
+bajja
+bajja
+./print.sh: line 5: /dev/tty: Operation not permitted
+```
 
 ##### secccomp (Secure Computing)
 Is a Linux kernel feature that restricts the system calls a process can call.
