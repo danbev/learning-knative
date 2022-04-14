@@ -733,7 +733,7 @@ $ docker exec -ti 78e22cb726b9 /bin/bash
 $ cd /root/go/src/github.com/containerd/containerd/bin
 $ ctr --debug images pull --user dbevenius:xxxx docker.io/dbevenius/faas-js-example:latest
 ```
-The first thing that happens is containerd will fetch the the data from the remove, 
+The first thing that happens is containerd will fetch the the data from the remote, 
 in this case docker and store this in the content store:
 ```console
 $ ctr content ls
@@ -1158,7 +1158,7 @@ error execution phase addon/coredns: unable to create deployment: Internal error
 ```
 But trying to restart it again worked. Perhaps there is some sort of race condition
 of service upon cluster startup.
-
+```console
 $ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.0/bin/linux/amd64/kubectl
 $ chmod +x ./kubectl
 $ sudo mv ./kubectl /usr/local/bin/kubectl
