@@ -11,13 +11,13 @@ technologies.
 
 #### Container
 A container is a process that is isolated from other processes using Linux
-kernal features like cgroups, namespaces, mounted union fs (chrooted), etc. 
+kernel features like cgroups, namespaces, mounted union fs (chrooted), etc.
 
 When a container is deployed what happens is that the above mentioned features
 are configured, a filesystem mounted, and a process is started. The metadata and
-the filesystem is contained in an image (more on this later).
+the filesystem are contained in an image (more on this later).
 
-A container image, it has all the libraries, files it needs to run. It does not
+A container image has all the libraries and files it needs to run. It does not
 have an entire OS but instead uses the underlying host's kernel which saves
 space compared to a separate VM. 
 
@@ -251,7 +251,7 @@ $ gcc -lseccomp -o seccomp_bpf seccomp_bpf.c
 ```
 
 ##### namespaces
-Are used to isolate process from each other. Each container will have its own
+Are used to isolate processes from each other. Each container will have its own
 namespace but it is also possible for multiple containers to be in the same
 namespace which is what the deployment unit of kubernetes is; the pod.
 
