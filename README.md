@@ -1126,6 +1126,21 @@ $ kubectl delete -f docs/member.yaml
 Keep this in mind when we are looking at Knative and Istio that this is mainly
 how one extends kubernetes using customer resources definitions with controllers.
 
+### Building a new container from Dockerfile
+Recall that docker is a client-server application and the server and client do
+not have to be on the same machine. Take the following build command:
+```console
+$ docker build -t node-example .
+```
+This is `docker` client will take the contents of the directory specified by
+`.` and upload it to the docker daemon which builds the image. In many cases
+the current directory will have files that are not needed when run and we can
+create a file named `.dockerignore` and list the files that will not be
+included.
+
+```console
+$ docker run -it --entrypoint sh  node-example
+
 ### Installing Kubernetes
 ```console
 $ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd6
@@ -1149,6 +1164,105 @@ And then source that file:
 $ . ~/.bash_aliases
 $ alias kubectl
 alias kubectl='minikube kubectl --'
+```
+
+### Installing Knative (updated)
+```console
+$ minikube update-check
+```
+
+Update minikube configuration and delete and start:
+```console
+$ minikube config set cpus 3
+$ minikube config set memory 3072
+$ minikube delete
+$ minikube start
+```
+
+In a new terminal start tunnel (after minikube has started):
+```console
+$ minikube tunnel
+```
+
+Install Knative Serving:
+```console
+$ ./knative-serving-install.sh
+```
+
+Install Knative Net Kourier:
+```console
+$ ./knative-serving-install.sh
+```
+
+Set EXTERNAL_IP environment variable:
+```console
+$ . ./knative-set-external-ip.sh
+```
+The above command should print a value for `EXTERNAL_IP` once the service is
+ready. Hmm, so I'm running minikube and the external-ip might never become
+available. I wonder if 
+```console
+$ kubectl -n kourier-system get services
+NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+kourier            LoadBalancer   10.96.56.44      <pending>     80:32368/TCP,443:30308/TCP   13m
+kourier-internal   ClusterIP      10.106.138.206   <none>        80/TCP                       13m
+
+$ minikube -n kourier-system  service kourier
+|----------------|---------|-------------|---------------------------|
+|   NAMESPACE    |  NAME   | TARGET PORT |            URL            |
+|----------------|---------|-------------|---------------------------|
+| kourier-system | kourier | http2/80    | http://192.168.49.2:32368 |
+|                |         | https/443   | http://192.168.49.2:30308 |
+|----------------|---------|-------------|---------------------------|
+[kourier-system kourier http2/80
+https/443 http://192.168.49.2:32368
+http://192.168.49.2:30308]
+```
+Since we only need the IP and not the port number I'll hard code that in the
+script.
+So I'm thinking we might be able to use that IP instead. I've updated the
+script to do that.
+
+
+Set KNATIVE_DOMAIN environment variable:
+```console
+$ . ./knative-set-domain-ip.sh
+```
+
+Configure DNS:
+```console
+$ ./knative-configure-dns.sh 
+```
+
+Configure Knative to use Kourier:
+```console
+$ ./knative-configure-kourier.sh
+```
+
+Check the installation:
+```console
+$ kubectl get pods -n knative-serving
+NAME                                      READY   STATUS    RESTARTS   AGE
+activator-67787798c8-5n5qx                1/1     Running   0          66m
+autoscaler-865c9bfddf-ltkbk               1/1     Running   0          66m
+controller-f7db78bf5-4qs9f                1/1     Running   0          66m
+domain-mapping-db5947c6-h6n6d             1/1     Running   0          66m
+domainmapping-webhook-6b777fc7f8-rszj7    1/1     Running   0          66m
+net-kourier-controller-6cbfd5f946-8np7l   1/1     Running   0          65m
+webhook-76f98768d6-hdxsk                  1/1     Running   0          66m
+```
+
+```console
+$ kubectl get pods -n kourier-system
+NAME                                      READY   STATUS    RESTARTS   AGE
+3scale-kourier-gateway-7fd55b5547-lcscr   1/1     Running   0          66m
+```
+
+```console
+$ kubectl get svc  -n kourier-system
+NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+kourier            LoadBalancer   10.96.56.44      <pending>     80:32368/TCP,443:30308/TCP   66m
+kourier-internal   ClusterIP      10.106.138.206   <none>        80/TCP                       66m
 ```
 
 ### Installing Knative
@@ -1370,8 +1484,13 @@ You deploy a prebuilt image to the underlying kubernetes cluster.
 Serving contains a number of components/object which are described below:
 
 #### Configuration
-This will contain a name reference to the container image to deploy. This
-ref is called a Revision.
+This is our description/statement of what our running system should look like.
+It will contain the container image to deploy and environment variables. Knative
+will take this information and convert it into lower level Kubernetes concepts
+like Deployments.
+
+Each time you update a configuration Knative creates a Revision.
+
 Example configuration (configuration.yaml):
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
