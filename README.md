@@ -1200,29 +1200,14 @@ $ . ./knative-set-external-ip.sh
 ```
 The above command should print a value for `EXTERNAL_IP` once the service is
 ready. Hmm, so I'm running minikube and the external-ip might never become
-available. I wonder if 
+available. So this can happen if you forget to run `minikube tunnel` which I 
+did :( 
+
 ```console
 $ kubectl -n kourier-system get services
 NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
 kourier            LoadBalancer   10.96.56.44      <pending>     80:32368/TCP,443:30308/TCP   13m
 kourier-internal   ClusterIP      10.106.138.206   <none>        80/TCP                       13m
-
-$ minikube -n kourier-system  service kourier
-|----------------|---------|-------------|---------------------------|
-|   NAMESPACE    |  NAME   | TARGET PORT |            URL            |
-|----------------|---------|-------------|---------------------------|
-| kourier-system | kourier | http2/80    | http://192.168.49.2:32368 |
-|                |         | https/443   | http://192.168.49.2:30308 |
-|----------------|---------|-------------|---------------------------|
-[kourier-system kourier http2/80
-https/443 http://192.168.49.2:32368
-http://192.168.49.2:30308]
-```
-Since we only need the IP and not the port number I'll hard code that in the
-script.
-So I'm thinking we might be able to use that IP instead. I've updated the
-script to do that.
-
 
 Set KNATIVE_DOMAIN environment variable:
 ```console
@@ -1261,9 +1246,26 @@ NAME                                      READY   STATUS    RESTARTS   AGE
 ```console
 $ kubectl get svc  -n kourier-system
 NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
-kourier            LoadBalancer   10.96.56.44      <pending>     80:32368/TCP,443:30308/TCP   66m
-kourier-internal   ClusterIP      10.106.138.206   <none>        80/TCP                       66m
+kourier            LoadBalancer   10.96.56.44      10.96.56.44   80:32368/TCP,443:30308/TCP   84m
+kourier-internal   ClusterIP      10.106.138.206   <none>        80/TCP                       84m
 ```
+
+Verfify the installation:
+```console
+$ kubectl apply -f helloworld.yaml
+service.serving.knative.dev/hello created
+
+$ kubectl wait ksvc hello --all --timeout=-1s --for=condition=Ready
+...
+service.serving.knative.dev/hello condition met
+
+$ SERVICE_URL=$(kubectl get ksvc hello -o jsonpath='{.status.url}')
+$ echo $SERVICE_URL 
+http://hello.default.10.96.56.44.sslip.io
+$ curl $SERVICE_URL
+Hello Knative!
+```
+
 
 ### Installing Knative
 Knative runs on kubernetes, and Knative depends on Istio so we need to install
