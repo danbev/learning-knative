@@ -24,3 +24,28 @@ inspect:
 
 curl:
 	curl localhost:8080
+
+publish:
+	docker tag node-example dbevenius/node-example
+	docker push dbevenius/node-example
+
+minikube:
+	minikube start
+
+info:
+	kubectl cluster-info
+
+krun:
+	kubectl run node-example --image=dbevenius/node-example --port=8080 --generator=run-pod/v1
+
+expose:
+	kubectl expose rc node-example --type=LoadBalancer --name node-http
+
+services:
+	kubectl get svc
+
+minikube-services:
+	minikube service node-http --url=true
+
+pods: 
+	kubectl get pods
