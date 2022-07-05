@@ -657,7 +657,7 @@ faas-js-example-container   31          created     /root/faas-js-example-bundle
 ```
 
 runC does not deal with any image registries and only runs applications that are
-packaged in the OCI format. So what ever executes runC would have to somehow
+packaged in the OCI format. So whatever executes runC would have to somehow
 get the images into this format (bundle) and execute runC with that bundle.
 
 So what calls runC?   
@@ -901,7 +901,7 @@ to kubernetes and kubelet to see how it uses containerd.
 In a kubernetes cluster, a worker node will have a kubelet daemon running which
 processes pod specs and uses the information in the pod specs to start containers.
 
-It originally did so by using docker as the container runtime. There are other
+It originally did so by using Docker as the container runtime. There are other
 container runtime, for example rkt, and to be able to switch out the container
 runtime an interface needed to be provided to enable this. This interface is 
 called the Kubernetes Container Runtime Interface (CRI).
@@ -917,6 +917,8 @@ The CRI Shim I think is a plugin in containerd enabling it to access lower level
 services in containerd without having to go through the "normal" client API. This
 might be useful to make a single API call that performs multiple containerd services
 instead of having to go via the client API which might require multiple calls.
+
+
 
 
 ```console
@@ -2136,5 +2138,19 @@ the rebooting:
 ```console
 sudo dnf install -y grubby && \
   sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+```
+
+### cri-o
+This is an implementation of Kubernetes Container Runtime Interface (CRI) and
+is a lightweight alternative to using Docker as the runtime for Kubernetes.
+
+Installing:
+```console
+$ dnf module list cri-o
+...
+
+$ sudo dnf module enable -y cri-o:1.17
+$ sudo dnf install -y cri-o cri-tools
+$ sudo systemctl enable crio --no
 ```
 
