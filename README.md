@@ -1126,7 +1126,32 @@ $ kubectl delete -f docs/member.yaml
 Keep this in mind when we are looking at Knative and Istio that this is mainly
 how one extends kubernetes using customer resources definitions with controllers.
 
-### Installation
+### Installing Kubernetes
+```console
+$ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd6
+$ sudo install minikube-linux-amd64 /usr/local/bin/minikube
+$ minikube version
+minikube version: v1.26.0
+
+$ minikube start
+```
+
+Update kubectl for this version of Kubernetes in use:
+```console
+$ minikube kubectl -- get po -A
+```
+And we can add a alias for this as (which I've added to `$/.bash_aliases`
+```console
+alias kubectl="minikube kubectl --"
+```
+And then source that file:
+```console
+$ . ~/.bash_aliases
+$ alias kubectl
+alias kubectl='minikube kubectl --'
+```
+
+### Installing Knative
 Knative runs on kubernetes, and Knative depends on Istio so we need to install
 these. Knative depends on Istio for setting up the internal network routing and the
 ingress (data originating from outside the local network).
