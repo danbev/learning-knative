@@ -14,3 +14,7 @@ $ make run
 ```console
 $ make kill
 ```
+
+### Access/call
+```console
+$ curl localhost:8080
