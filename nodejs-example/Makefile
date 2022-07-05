@@ -9,12 +9,18 @@ run:
 run-shell:
 	docker run -it --entrypoint sh  node-example
 
+exec:
+	docker exec -it $(CONTAINER_NAME) bash
+
 ps: 
 	docker ps -f name=$(CONTAINER_NAME)
 
 kill:
 	docker kill $(CONTAINER_NAME)
 	docker rm $(CONTAINER_NAME)
+
+inspect:
+	docker inspect $(CONTAINER_NAME)
 
 curl:
 	curl localhost:8080
