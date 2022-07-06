@@ -1266,6 +1266,11 @@ $ curl $SERVICE_URL
 Hello Knative!
 ```
 
+#### Install Knative Eventing
+```console
+$ ./knative-eventing-install.sh
+```
+
 ### Deploying applications/resources
 ```console
 $ kubectl apply -f source.yaml
