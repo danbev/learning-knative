@@ -2584,11 +2584,18 @@ This program will talk to the podman service inside a minikube VM.
 We can use podman-remote to build an image and it will be available to the
 containers in minikube.
 
+
+### Minikube image commands
+First we need to start minikube:
 ```console
 $ minikube start --kubernetes-version=1.24.1 --driver=podman --container-runtime=cri-o
+```
+And the update our environment with Podman settings:
+```
 $ eval $(minikube podman-env)
 ```
 
+Next, we enable the image registry:
 ```console
 $ minikube addons enable registry
     ▪ Using image registry:2.7.1
@@ -2596,22 +2603,22 @@ $ minikube addons enable registry
 🔎  Verifying registry addon...
 🌟  The 'registry' addon is enabled
 ```
-
+We can now build the image:
 ```console
 $ minikube image build -t $(minikube ip):5000/nodeserver:1.0.0 --file Dockerfile-run .
 ```
+And we can list the image using:
 ```console
 $ minikube image ls
 ...
 192.168.58.2:5000/nodeserver:1.0.0
 ...
 ```
-
+Next, we push the image into the registry using:
 ```console
 $ minikube image push $(minikube ip):5000/nodeserver
 ```
-
+After that we can use the image:
 ```console
 $ kubectl run testapp --image='192.168.58.2:5000/nodeserver:1.0.0' --image-pull-policy=IfNotPresent
-
 ```
