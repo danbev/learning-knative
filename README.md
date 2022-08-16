@@ -1371,15 +1371,57 @@ it’s possible to bring up a new Revision while serving traffic to the old vers
 Then, once you are ready to direct traffic to the new Revision, update the Route
 to instantly switch over. This is sometimes referred to as a blue-green
 deployment, with blue and green representing the different versions.
+
 ```console
-$ kubectl get revisions 
+$ kubectl get revisions
+NAME          CONFIG NAME   K8S SERVICE NAME   GENERATION   READY   REASON   ACTUAL REPLICAS   DESIRED REPLICAS
+hello-00001   hello                            1            True             0                 0
+hello-00002   hello                            2            True             0                 0
+```
+
+Get more details using describe:
+```console
+$ kubectl describe revisions hello-00002
 ```
 
 #### Route
-Routes to a specific revision.
+A Route is a how Knative maps an incoming HTTP request to a specific Revision.
+A Route needs to know where public HTTP incoming traffic is coming from, it
+also needs to know the targets to send this traffic to, and also how many
+reqeust should go to each target.
+
+```console
+$ kubectl get routes
+$ kn route list
+NAME    URL                                         READY   REASON
+hello   http://hello.default.10.96.56.44.sslip.io   True
+```
+
+```console
+$ kubectl describe route hello
+$ kn route describe hello
+...
+Spec:
+  Traffic:
+    Configuration Name:  hello
+    Latest Revision:     true
+    Percent:             100
+...
+```
+A Route has a `Configuration Name` which is the name of the configuration that
+this Route belongs to. 
 
 #### Service
-This is our functions code.
+A Knative service consists of configurations and routes. This is not to be
+confused with Kubernetes services even though that share some simliarites. The
+Kubernetes service contains a name where traffic can be sent which is required
+as software can come and go. So a client uses the service to send requests and
+the service will be an abstraction layer. But this mostly for handling internal
+cluster traffic, and the external traffic is mostly handled by the Ingress that
+performs the interataction with the outside would and the internal cluster
+network. 
+The Knative Service contains Routes which takes care of both the internal as
+well as the Ingress parts. In addition it also contains Configurations.
 
 The serving names space is `knative-serving`. The Serving system has four
 primary components. 
@@ -1428,7 +1470,8 @@ Makes it easy to produce and consume events. Abstracts away from event sources
 and allows operators to run their messaging layer of choice.
 
 Knative is installed as a set of Custom Resource Definitions (CRDs) for
-Kubernetes.
+Kubernetes. There are Sources (from where events originate), Sinks (where events
+go), Triggers, Broker, Channels, Subscriptions, Flows.
 
 #### Sources
 The source of the events.
@@ -1437,6 +1480,10 @@ Examples:
 * Kubernetes Events
 * Github
 * Container Sources
+
+#### Trigger
+Combines info about an event filter 
+
 
 
 
@@ -1850,7 +1897,7 @@ VTEPs get their own MAC and IP addresses and show up as network interfaces
 So, we understand that containers in the same namespace is what a pod is. And
 they will share the same network namespace hence have the same ip address, and
 share the same iptables, and ip routing rules. In the namespaces section above
-we also saw how multiple namespaces and communicate with each other.
+we also saw how multiple namespaces can communicate with each other.
 
 So, a pod will have an ip address (all the processes in the same namespace) and
 the worker node that the pod is running on will also have a ip:
@@ -2141,3 +2188,430 @@ $ sudo dnf install -y cri-o cri-tools
 $ sudo systemctl enable crio --no
 ```
 
+
+### Minikube/podman issue
+```
+$ minikube start --driver=podman --container-runtime=containerd
+😄  minikube v1.26.0 on Fedora 35
+    ▪ MINIKUBE_ROOTLESS=true
+✨  Using the podman driver based on user configuration
+📌  Using rootless Podman driver
+👍  Starting control plane node minikube in cluster minikube
+🚜  Pulling base image ...
+💾  Downloading Kubernetes v1.24.1 preload ...
+    > preloaded-images-k8s-v18-v1...: 473.22 MiB / 473.22 MiB  100.00% 22.48 Mi
+E0815 11:42:11.130669 2615925 cache.go:203] Error downloading kic artifacts:  not yet implemented, see issue #8426
+🔥  Creating podman container (CPUs=3, Memory=3072MB) ...
+📦  Preparing Kubernetes v1.24.1 on containerd 1.6.6 ...
+    ▪ Generating certificates and keys ...
+    ▪ Booting up control plane ...
+💢  initialization failed, will try again: wait: /bin/bash -c "sudo env PATH="/var/lib/minikube/binaries/v1.24.1:$PATH" kubeadm init --config /var/tmp/minikube/kubeadm.yaml  --ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests,DirAvailable--var-lib-minikube,DirAvailable--var-lib-minikube-etcd,FileAvailable--etc-kubernetes-manifests-kube-scheduler.yaml,FileAvailable--etc-kubernetes-manifests-kube-apiserver.yaml,FileAvailable--etc-kubernetes-manifests-kube-controller-manager.yaml,FileAvailable--etc-kubernetes-manifests-etcd.yaml,Port-10250,Swap,Mem,SystemVerification,FileContent--proc-sys-net-bridge-bridge-nf-call-iptables": Process exited with status 1
+stdout:
+[init] Using Kubernetes version: v1.24.1
+[preflight] Running pre-flight checks
+[preflight] Pulling images required for setting up a Kubernetes cluster
+[preflight] This might take a minute or two, depending on the speed of your internet connection
+[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
+[certs] Using certificateDir folder "/var/lib/minikube/certs"
+[certs] Using existing ca certificate authority
+[certs] Using existing apiserver certificate and key on disk
+[certs] Generating "apiserver-kubelet-client" certificate and key
+[certs] Generating "front-proxy-ca" certificate and key
+[certs] Generating "front-proxy-client" certificate and key
+[certs] Generating "etcd/ca" certificate and key
+[certs] Generating "etcd/server" certificate and key
+[certs] etcd/server serving cert is signed for DNS names [localhost minikube] and IPs [192.168.58.2 127.0.0.1 ::1]
+[certs] Generating "etcd/peer" certificate and key
+[certs] etcd/peer serving cert is signed for DNS names [localhost minikube] and IPs [192.168.58.2 127.0.0.1 ::1]
+[certs] Generating "etcd/healthcheck-client" certificate and key
+[certs] Generating "apiserver-etcd-client" certificate and key
+[certs] Generating "sa" key and public key
+[kubeconfig] Using kubeconfig folder "/etc/kubernetes"
+[kubeconfig] Writing "admin.conf" kubeconfig file
+[kubeconfig] Writing "kubelet.conf" kubeconfig file
+[kubeconfig] Writing "controller-manager.conf" kubeconfig file
+[kubeconfig] Writing "scheduler.conf" kubeconfig file
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Starting the kubelet
+[control-plane] Using manifest folder "/etc/kubernetes/manifests"
+[control-plane] Creating static Pod manifest for "kube-apiserver"
+[control-plane] Creating static Pod manifest for "kube-controller-manager"
+[control-plane] Creating static Pod manifest for "kube-scheduler"
+[etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
+[kubelet-check] Initial timeout of 40s passed.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+
+Unfortunately, an error has occurred:
+	timed out waiting for the condition
+
+This error is likely caused by:
+	- The kubelet is not running
+	- The kubelet is unhealthy due to a misconfiguration of the node in some way (required cgroups disabled)
+
+If you are on a systemd-powered system, you can try to troubleshoot the error with the following commands:
+	- 'systemctl status kubelet'
+	- 'journalctl -xeu kubelet'
+
+Additionally, a control plane component may have crashed or exited when started by the container runtime.
+To troubleshoot, list all containers using your preferred container runtimes CLI.
+Here is one example how you may list all running Kubernetes containers by using crictl:
+	- 'crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps -a | grep kube | grep -v pause'
+	Once you have found the failing container, you can inspect its logs with:
+	- 'crictl --runtime-endpoint unix:///run/containerd/containerd.sock logs CONTAINERID'
+
+stderr:
+W0815 09:42:25.012313     687 initconfiguration.go:120] Usage of CRI endpoints without URL scheme is deprecated and can cause kubelet errors in the future. Automatically prepending scheme "unix" to the "criSocket" with value "/run/containerd/containerd.sock". Please update your configuration!
+	[WARNING Swap]: swap is enabled; production deployments should disable swap unless testing the NodeSwap feature gate of the kubelet
+	[WARNING Service-Kubelet]: kubelet service is not enabled, please run 'systemctl enable kubelet.service'
+error execution phase wait-control-plane: couldn't initialize a Kubernetes cluster
+To see the stack trace of this error execute with --v=5 or higher
+
+    ▪ Generating certificates and keys ...
+    ▪ Booting up control plane ...
+
+💣  Error starting cluster: wait: /bin/bash -c "sudo env PATH="/var/lib/minikube/binaries/v1.24.1:$PATH" kubeadm init --config /var/tmp/minikube/kubeadm.yaml  --ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests,DirAvailable--var-lib-minikube,DirAvailable--var-lib-minikube-etcd,FileAvailable--etc-kubernetes-manifests-kube-scheduler.yaml,FileAvailable--etc-kubernetes-manifests-kube-apiserver.yaml,FileAvailable--etc-kubernetes-manifests-kube-controller-manager.yaml,FileAvailable--etc-kubernetes-manifests-etcd.yaml,Port-10250,Swap,Mem,SystemVerification,FileContent--proc-sys-net-bridge-bridge-nf-call-iptables": Process exited with status 1
+stdout:
+[init] Using Kubernetes version: v1.24.1
+[preflight] Running pre-flight checks
+[preflight] Pulling images required for setting up a Kubernetes cluster
+[preflight] This might take a minute or two, depending on the speed of your internet connection
+[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
+[certs] Using certificateDir folder "/var/lib/minikube/certs"
+[certs] Using existing ca certificate authority
+[certs] Using existing apiserver certificate and key on disk
+[certs] Using existing apiserver-kubelet-client certificate and key on disk
+[certs] Using existing front-proxy-ca certificate authority
+[certs] Using existing front-proxy-client certificate and key on disk
+[certs] Using existing etcd/ca certificate authority
+[certs] Using existing etcd/server certificate and key on disk
+[certs] Using existing etcd/peer certificate and key on disk
+[certs] Using existing etcd/healthcheck-client certificate and key on disk
+[certs] Using existing apiserver-etcd-client certificate and key on disk
+[certs] Using the existing "sa" key
+[kubeconfig] Using kubeconfig folder "/etc/kubernetes"
+[kubeconfig] Writing "admin.conf" kubeconfig file
+[kubeconfig] Writing "kubelet.conf" kubeconfig file
+[kubeconfig] Writing "controller-manager.conf" kubeconfig file
+[kubeconfig] Writing "scheduler.conf" kubeconfig file
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Starting the kubelet
+[control-plane] Using manifest folder "/etc/kubernetes/manifests"
+[control-plane] Creating static Pod manifest for "kube-apiserver"
+[control-plane] Creating static Pod manifest for "kube-controller-manager"
+[control-plane] Creating static Pod manifest for "kube-scheduler"
+[etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
+[kubelet-check] Initial timeout of 40s passed.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+
+Unfortunately, an error has occurred:
+	timed out waiting for the condition
+
+This error is likely caused by:
+	- The kubelet is not running
+	- The kubelet is unhealthy due to a misconfiguration of the node in some way (required cgroups disabled)
+
+If you are on a systemd-powered system, you can try to troubleshoot the error with the following commands:
+	- 'systemctl status kubelet'
+	- 'journalctl -xeu kubelet'
+
+Additionally, a control plane component may have crashed or exited when started by the container runtime.
+To troubleshoot, list all containers using your preferred container runtimes CLI.
+Here is one example how you may list all running Kubernetes containers by using crictl:
+	- 'crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps -a | grep kube | grep -v pause'
+	Once you have found the failing container, you can inspect its logs with:
+	- 'crictl --runtime-endpoint unix:///run/containerd/containerd.sock logs CONTAINERID'
+
+stderr:
+W0815 09:45:33.060576    1209 initconfiguration.go:120] Usage of CRI endpoints without URL scheme is deprecated and can cause kubelet errors in the future. Automatically prepending scheme "unix" to the "criSocket" with value "/run/containerd/containerd.sock". Please update your configuration!
+	[WARNING Swap]: swap is enabled; production deployments should disable swap unless testing the NodeSwap feature gate of the kubelet
+	[WARNING Service-Kubelet]: kubelet service is not enabled, please run 'systemctl enable kubelet.service'
+error execution phase wait-control-plane: couldn't initialize a Kubernetes cluster
+To see the stack trace of this error execute with --v=5 or higher
+
+
+╭───────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                           │
+│    😿  If the above advice does not help, please let us know:                             │
+│    👉  https://github.com/kubernetes/minikube/issues/new/choose                           │
+│                                                                                           │
+│    Please run `minikube logs --file=logs.txt` and attach logs.txt to the GitHub issue.    │
+│                                                                                           │
+╰───────────────────────────────────────────────────────────────────────────────────────────╯
+❌  Problems detected in kubelet:
+    Aug 15 09:47:19 minikube kubelet[1709]: E0815 09:47:19.210612    1709 kubelet.go:1378] "Failed to start ContainerManager" err="system validation failed - Following Cgroup subsystem not mounted: [cpuset]"
+    Aug 15 09:47:20 minikube kubelet[1733]: E0815 09:47:20.185350    1733 kubelet.go:1378] "Failed to start ContainerManager" err="system validation failed - Following Cgroup subsystem not mounted: [cpuset]"
+    Aug 15 09:47:21 minikube kubelet[1756]: E0815 09:47:21.193015    1756 kubelet.go:1378] "Failed to start ContainerManager" err="system validation failed - Following Cgroup subsystem not mounted: [cpuset]"
+
+❌  Exiting due to K8S_KUBELET_NOT_RUNNING: wait: /bin/bash -c "sudo env PATH="/var/lib/minikube/binaries/v1.24.1:$PATH" kubeadm init --config /var/tmp/minikube/kubeadm.yaml  --ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests,DirAvailable--var-lib-minikube,DirAvailable--var-lib-minikube-etcd,FileAvailable--etc-kubernetes-manifests-kube-scheduler.yaml,FileAvailable--etc-kubernetes-manifests-kube-apiserver.yaml,FileAvailable--etc-kubernetes-manifests-kube-controller-manager.yaml,FileAvailable--etc-kubernetes-manifests-etcd.yaml,Port-10250,Swap,Mem,SystemVerification,FileContent--proc-sys-net-bridge-bridge-nf-call-iptables": Process exited with status 1
+stdout:
+[init] Using Kubernetes version: v1.24.1
+[preflight] Running pre-flight checks
+[preflight] Pulling images required for setting up a Kubernetes cluster
+[preflight] This might take a minute or two, depending on the speed of your internet connection
+[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
+[certs] Using certificateDir folder "/var/lib/minikube/certs"
+[certs] Using existing ca certificate authority
+[certs] Using existing apiserver certificate and key on disk
+[certs] Using existing apiserver-kubelet-client certificate and key on disk
+[certs] Using existing front-proxy-ca certificate authority
+[certs] Using existing front-proxy-client certificate and key on disk
+[certs] Using existing etcd/ca certificate authority
+[certs] Using existing etcd/server certificate and key on disk
+[certs] Using existing etcd/peer certificate and key on disk
+[certs] Using existing etcd/healthcheck-client certificate and key on disk
+[certs] Using existing apiserver-etcd-client certificate and key on disk
+[certs] Using the existing "sa" key
+[kubeconfig] Using kubeconfig folder "/etc/kubernetes"
+[kubeconfig] Writing "admin.conf" kubeconfig file
+[kubeconfig] Writing "kubelet.conf" kubeconfig file
+[kubeconfig] Writing "controller-manager.conf" kubeconfig file
+[kubeconfig] Writing "scheduler.conf" kubeconfig file
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Starting the kubelet
+[control-plane] Using manifest folder "/etc/kubernetes/manifests"
+[control-plane] Creating static Pod manifest for "kube-apiserver"
+[control-plane] Creating static Pod manifest for "kube-controller-manager"
+[control-plane] Creating static Pod manifest for "kube-scheduler"
+[etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
+[kubelet-check] Initial timeout of 40s passed.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+[kubelet-check] It seems like the kubelet isn't running or healthy.
+[kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get "http://localhost:10248/healthz": dial tcp [::1]:10248: connect: connection refused.
+
+Unfortunately, an error has occurred:
+	timed out waiting for the condition
+
+This error is likely caused by:
+	- The kubelet is not running
+	- The kubelet is unhealthy due to a misconfiguration of the node in some way (required cgroups disabled)
+
+If you are on a systemd-powered system, you can try to troubleshoot the error with the following commands:
+	- 'systemctl status kubelet'
+	- 'journalctl -xeu kubelet'
+
+Additionally, a control plane component may have crashed or exited when started by the container runtime.
+To troubleshoot, list all containers using your preferred container runtimes CLI.
+Here is one example how you may list all running Kubernetes containers by using crictl:
+	- 'crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps -a | grep kube | grep -v pause'
+	Once you have found the failing container, you can inspect its logs with:
+	- 'crictl --runtime-endpoint unix:///run/containerd/containerd.sock logs CONTAINERID'
+
+stderr:
+W0815 09:45:33.060576    1209 initconfiguration.go:120] Usage of CRI endpoints without URL scheme is deprecated and can cause kubelet errors in the future. Automatically prepending scheme "unix" to the "criSocket" with value "/run/containerd/containerd.sock". Please update your configuration!
+	[WARNING Swap]: swap is enabled; production deployments should disable swap unless testing the NodeSwap feature gate of the kubelet
+	[WARNING Service-Kubelet]: kubelet service is not enabled, please run 'systemctl enable kubelet.service'
+error execution phase wait-control-plane: couldn't initialize a Kubernetes cluster
+To see the stack trace of this error execute with --v=5 or higher
+
+💡  Suggestion: Check output of 'journalctl -xeu kubelet', try passing --extra-config=kubelet.cgroup-driver=systemd to minikube start
+🍿  Related issue: https://github.com/kubernetes/minikube/issues/4172
+
+```
+
+```console
+$ podman info
+host:
+  arch: amd64
+  buildahVersion: 1.23.1
+  cgroupControllers: []
+  ...
+```
+To get around this I removed my local `.minikube` directory.
+cgroupControllers is empty
+
+### Podman local registry
+Start minikube and specify `--insecure-registry`:
+```console
+$ minikube start --kubernetes-version=1.24.1 --driver=podman --container-runtime=cri-o --insecure-registry="registry.local:5000"
+```
+
+We need to add `registry.local` to our `/etc/hosts` file:
+```
+127.0.0.1   registry.local
+```
+
+Create a local image registry:
+```console
+$ sudo mkdir -p /var/lib/registry
+$ sudo podman run --privileged -d --name registry -p 5000:5000 -v /var/lib/registry:/var/lib/registry --restart=always registry:2
+```
+Now, one things to keep in mind here is that if we try to list the containers
+and pods we might not see the registry unless we use `sudo`:
+```console
+$ podman ps -a --pod
+CONTAINER ID  IMAGE       COMMAND     CREATED     STATUS      PORTS       NAMES       POD ID      PODNAME
+```
+```console
+$ sudo podman ps -a --pod
+CONTAINER ID  IMAGE                                COMMAND               CREATED       STATUS           PORTS                                                                                                                                 NAMES       POD ID      PODNAME
+84a6d03c7c59  docker.io/library/registry:2         /etc/docker/regis...  19 hours ago  Up 19 hours ago  0.0.0.0:5000->5000/tcp                                                                                                                registry                
+1003536ecb9c  docker.io/library/registry:2         /etc/docker/regis...  18 hours ago  Up 18 hours ago  0.0.0.0:32000->32000/tcp                                                                                                              registry2               
+```
+
+At this stage the local register will be empty:
+```console
+$ ls /var/lib/registry/
+```
+
+We also need to configure Podman that this repository is insecure by adding
+a file named /etc/containers/registries.conf.d/myregistry.conf
+```console
+[[registry]]
+location = "registry.local"
+insecure = true
+```
+We also need to have this file in minikube:
+```console
+$ minikube ssh
+
+docker@minikube:~$ cat /etc/containers/registries.conf.d/myregistry.conf 
+[[registry]]
+location = "registry.local"
+insecure = true
+```
+And we also have to update the `registry.local` entry in `/etc/hosts` to point
+to the ip of our host instead of 127.0.0.1:
+```console
+docker@minikube:~$ cat /etc/hosts
+...
+192.168.58.1 registry.local
+...
+```
+
+Pushing to the repo (first we tag the image):
+```console
+$ podman tag localhost/nodeserver:1.0.0 registry.local:5000/nodeserver:1.0.0
+
+$ podman push registrylocal:5000/nodeserver:1.0.0
+Getting image source signatures
+Copying blob 35dcfd80254d done  
+Copying blob 45be49c816d9 done  
+Copying blob 3a7cf912892b done  
+Copying blob fa2135dabe94 done  
+Copying blob adf2e01f30d5 done  
+Copying config 065eeb9b1c done  
+Writing manifest to image destination
+Storing signatures
+```
+And this will have populated `/var/lib/registry`:
+```console
+$ ls /var/lib/registry/
+docker
+```
+
+We should now be able to list tags (if we have pushed to this repository.
+```console
+$ curl -X GET http://registry.local:5000/v2/nodeserver/tags/list
+{"name":"nodeserver","tags":["1.0.0"]}
+```
+
+I'm using minikube, can I access the registry from within minikube:
+```console
+$ minikube ssh
+docker@minikube:~$ curl -X GET http://registry.local:5000/v2/nodeserver/tags/list
+{"name":"nodeserver","tags":["1.0.0"]}
+```
+
+So now we want to deploy a Helm chart which uses this image, it should pull from
+our local registry:
+```console
+$ helm install nodeserver --set image.repository=registry.local:5000/nodeserver  chart/nodeserver
+
+$ kubectl get pods
+NAME                                     READY   STATUS             RESTARTS   AGE
+nodeserver-deployment-55879788dc-llr62   1/1     Running            0          7s
+```
+
+
+
+Find process listening to port 5000:
+```console
+$ sudo lsof -i -P -n | grep 5000
+exe       2801056  danielbevenius   12u  IPv6 12953132      0t0  TCP *:5000 (LISTEN)
+$ ps  2801056
+    PID TTY      STAT   TIME COMMAND
+2801056 pts/23   Sl     0:00 containers-rootlessport
+```
+
+```console
+$ curl -X GET http://192.168.49.1:5000/v2/nodeserver/tags/list
+```
+
+### Minikube registry addon
+Install podman 4:
+```console
+$ sudo dnf -y copr enable rhcontainerbot/podman4
+$ sudo dnf -y upgrade podman
+$ podman --version
+podman version 4.2.0
+```
+Now, podman-remote is not installed and it is needed:
+```console
+$ sudo dnf -y install podman-remote
+```
+This program will talk to the podman service inside a minikube VM.
+We can use podman-remote to build an image and it will be available to the
+containers in minikube.
+
+```console
+$ minikube start --kubernetes-version=1.24.1 --driver=podman --container-runtime=cri-o
+$ eval $(minikube podman-env)
+```
+
+```console
+$ minikube addons enable registry
+    ▪ Using image registry:2.7.1
+    ▪ Using image gcr.io/google_containers/kube-registry-proxy:0.4
+🔎  Verifying registry addon...
+🌟  The 'registry' addon is enabled
+```
+
+```console
+$ minikube image build -t $(minikube ip):5000/nodeserver:1.0.0 --file Dockerfile-run .
+```
+```console
+$ minikube image ls
+...
+192.168.58.2:5000/nodeserver:1.0.0
+...
+```
+
+```console
+$ minikube image push $(minikube ip):5000/nodeserver
+```
+
+```console
+$ kubectl run testapp --image='192.168.58.2:5000/nodeserver:1.0.0' --image-pull-policy=IfNotPresent
+
+```
